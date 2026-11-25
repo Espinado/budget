@@ -653,6 +653,285 @@ class PropertyObjectTest extends TestCase
         $this->actingAs($other)->get(route('objects.edit', $object))->assertNotFound();
     }
 
+    public function test_two_plan_lines_of_one_category_render_as_one_checkbox(): void
+    {
+        $this->app->setLocale('ru');
+        [$user, $household] = $this->family('Наша');
+        $dwelling = $this->category($household, 'Дом');
+        $rent = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $dwelling->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Квартплата Прушу',
+            'sort' => 2,
+        ]);
+        $november = $this->period($household);
+        $december = BudgetPeriod::query()->create([
+            'household_id' => $household->id,
+            'starts_on' => '2026-12-01',
+            'ends_on' => '2026-12-31',
+            'opening_balance_cents' => 0,
+            'status' => 'open',
+        ]);
+        PlanLine::query()->create([
+            'period_id' => $november->id,
+            'category_id' => $rent->id,
+            'title' => 'Квартплата Прушу',
+            'amount_cents' => 19_529,
+            'expected_on' => '2026-11-18',
+        ]);
+        PlanLine::query()->create([
+            'period_id' => $december->id,
+            'category_id' => $rent->id,
+            'title' => 'Квартплата Прушу',
+            'amount_cents' => 20_000,
+            'expected_on' => '2026-12-05',
+        ]);
+
+        $html = Livewire::actingAs($user)->test(PropertyObjectForm::class)->html();
+
+        $this->assertSame(1, substr_count($html, 'data-plan-category="'.$rent->id.'"'));
+        $this->assertSame(1, substr_count($html, 'wire:model="categoryIds" value="'.$rent->id.'"'));
+    }
+
+    public function test_placing_or_creating_on_an_object_moves_a_category_instead_of_copying_it(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00', 'Europe/Riga'));
+        $this->app->setLocale('ru');
+        [$user, $household] = $this->family('Наша');
+        $dwelling = $this->category($household, 'Дом');
+        $utilities = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $dwelling->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Коммунальные услуги',
+            'sort' => 2,
+        ]);
+        $rentCopy = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $utilities->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Квартплата Прушу',
+            'sort' => 3,
+        ]);
+        $tax = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $dwelling->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Налог Прушу',
+            'sort' => 4,
+        ]);
+        $birds = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $dwelling->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Корм для птиц',
+            'sort' => 5,
+        ]);
+        $prusu = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $dwelling->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Прушу',
+            'sort' => 6,
+        ]);
+        $rent = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $prusu->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Квартплата Прушу',
+            'sort' => 7,
+        ]);
+        $schedule = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $prusu->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Luminor Bank',
+            'sort' => 8,
+        ]);
+        $creditLeaf = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => null,
+            'type' => CashflowType::Expense,
+            'name' => 'Luminor Bank',
+            'sort' => 9,
+        ]);
+        $credit = $this->category($household, 'Кредит');
+        $creditLeaf->update(['parent_id' => $credit->id]);
+        $november = $this->period($household);
+        $december = BudgetPeriod::query()->create([
+            'household_id' => $household->id,
+            'starts_on' => '2026-12-01',
+            'ends_on' => '2026-12-31',
+            'opening_balance_cents' => 0,
+            'status' => 'open',
+        ]);
+        $novemberRent = PlanLine::query()->create([
+            'period_id' => $november->id,
+            'category_id' => $rentCopy->id,
+            'title' => 'Квартплата Прушу',
+            'amount_cents' => 19_529,
+            'expected_on' => '2026-11-18',
+        ]);
+        $decemberRent = PlanLine::query()->create([
+            'period_id' => $december->id,
+            'category_id' => $rent->id,
+            'title' => 'Квартплата Прушу',
+            'amount_cents' => 20_000,
+            'expected_on' => '2026-12-05',
+        ]);
+        $taxLine = PlanLine::query()->create([
+            'period_id' => $november->id,
+            'category_id' => $tax->id,
+            'title' => 'Налог Прушу',
+            'amount_cents' => 1_446,
+            'expected_on' => '2026-11-11',
+        ]);
+        $birdLine = PlanLine::query()->create([
+            'period_id' => $november->id,
+            'category_id' => $birds->id,
+            'title' => 'Корм для птиц',
+            'amount_cents' => 2_000,
+            'expected_on' => '2026-11-03',
+        ]);
+        $mortgage = PlanLine::query()->create([
+            'period_id' => $november->id,
+            'category_id' => $credit->id,
+            'title' => 'Luminor Bank',
+            'amount_cents' => 27_843,
+            'expected_on' => '2026-11-10',
+        ]);
+        $scheduleLine = PlanLine::query()->create([
+            'period_id' => $december->id,
+            'category_id' => $schedule->id,
+            'title' => 'Luminor Bank',
+            'amount_cents' => 28_463,
+            'expected_on' => '2026-12-10',
+        ]);
+        $paid = Transaction::query()->create([
+            'household_id' => $household->id,
+            'period_id' => $november->id,
+            'category_id' => $rentCopy->id,
+            'plan_line_id' => $novemberRent->id,
+            'type' => CashflowType::Expense,
+            'amount_cents' => 19_529,
+            'occurred_on' => '2026-11-18',
+            'created_by' => $user->id,
+        ]);
+        $debt = Debt::query()->create([
+            'household_id' => $household->id,
+            'category_id' => $credit->id,
+            'direction' => DebtDirection::Borrow,
+            'kind' => DebtKind::Bank,
+            'counterparty' => 'Luminor Bank',
+        ]);
+        $installment = DebtInstallment::query()->create([
+            'debt_id' => $debt->id,
+            'sequence' => 1,
+            'due_on' => '2026-11-10',
+            'principal_before_cents' => 1_000_000,
+            'principal_cents' => 27_843,
+            'interest_cents' => 0,
+            'other_cents' => 0,
+            'fee_cents' => 0,
+            'total_cents' => 27_843,
+            'plan_line_id' => $mortgage->id,
+            'paid_transaction_id' => $paid->id,
+        ]);
+        DebtInstallment::query()->create([
+            'debt_id' => $debt->id,
+            'sequence' => 2,
+            'due_on' => '2026-12-10',
+            'principal_before_cents' => 900_000,
+            'principal_cents' => 28_463,
+            'interest_cents' => 0,
+            'other_cents' => 0,
+            'fee_cents' => 0,
+            'total_cents' => 28_463,
+            'plan_line_id' => $scheduleLine->id,
+        ]);
+        $object = PropertyObject::query()->create([
+            'household_id' => $household->id,
+            'category_id' => $prusu->id,
+            'name' => 'Прушу',
+            'kind' => 'apartment',
+            'label' => 'Прушу 1',
+        ]);
+        $object->debts()->sync([$debt->id]);
+        $object->planLines()->sync([$decemberRent->id, $scheduleLine->id]);
+        $beforeLines = PlanLine::query()->count();
+        $beforeCents = (int) PlanLine::query()->sum('amount_cents');
+
+        Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $object])
+            ->set('placeMode', 'under')
+            ->set('parentCategoryId', $dwelling->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame(1, Category::query()->where('name', 'Квартплата Прушу')->count());
+        $this->assertSame($prusu->id, (int) $rent->fresh()->parent_id);
+        $this->assertNull(Category::query()->find($rentCopy->id));
+        $this->assertSame($rent->id, (int) $novemberRent->fresh()->category_id);
+        $this->assertSame($rent->id, (int) $decemberRent->fresh()->category_id);
+        $this->assertSame(19_529, (int) $novemberRent->fresh()->amount_cents);
+        $this->assertSame('2026-11-18', $novemberRent->fresh()->expected_on->toDateString());
+        $this->assertSame(20_000, (int) $decemberRent->fresh()->amount_cents);
+        $this->assertSame('2026-12-05', $decemberRent->fresh()->expected_on->toDateString());
+        $this->assertSame(19_529, (int) $paid->fresh()->amount_cents);
+        $this->assertSame('2026-11-18', $paid->fresh()->occurred_on->toDateString());
+        $this->assertSame($novemberRent->id, (int) $paid->fresh()->plan_line_id);
+        $this->assertSame($rent->id, (int) $paid->fresh()->category_id);
+        $this->assertSame($beforeLines, PlanLine::query()->count());
+        $this->assertSame($beforeCents, (int) PlanLine::query()->sum('amount_cents'));
+        $this->assertSame($credit->id, (int) $mortgage->fresh()->category_id);
+        $this->assertSame(27_843, (int) $mortgage->fresh()->amount_cents);
+        $this->assertSame($credit->id, (int) $debt->fresh()->category_id);
+        $this->assertSame($paid->id, (int) $installment->fresh()->paid_transaction_id);
+        $this->assertSame(1, Category::query()->where('name', 'Luminor Bank')->count());
+        $this->assertSame($prusu->id, (int) $schedule->fresh()->parent_id);
+        $this->assertNull(Category::query()->find($creditLeaf->id));
+        $this->assertSame($dwelling->id, (int) $birds->fresh()->parent_id);
+        $this->assertSame(2_000, (int) $birdLine->fresh()->amount_cents);
+
+        $card = Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $object])
+            ->set('expenseName', 'Налог Прушу')
+            ->set('expenseAmount', '14,46')
+            ->set('expenseDate', '2026-11-11')
+            ->call('saveExpense')
+            ->assertHasNoErrors();
+
+        $this->assertSame(1, Category::query()->where('name', 'Налог Прушу')->count());
+        $this->assertSame($prusu->id, (int) $tax->fresh()->parent_id);
+        $this->assertSame(1_446, (int) $taxLine->fresh()->amount_cents);
+        $this->assertSame('2026-11-11', $taxLine->fresh()->expected_on->toDateString());
+        $this->assertSame($tax->id, (int) $taxLine->fresh()->category_id);
+        $this->assertSame($dwelling->id, (int) $birds->fresh()->parent_id);
+
+        $card
+            ->set('placeMode', 'root')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame(1, Category::query()->where('name', 'Прушу')->count());
+        $this->assertNull($prusu->fresh()->parent_id);
+        $this->assertSame($prusu->id, (int) $rent->fresh()->parent_id);
+        $this->assertSame($prusu->id, (int) $tax->fresh()->parent_id);
+        $this->assertSame(0, Category::query()->where('parent_id', $dwelling->id)->where('name', 'Прушу')->count());
+        $this->assertSame(19_529, (int) $novemberRent->fresh()->amount_cents);
+        $this->assertSame(27_843, (int) $mortgage->fresh()->amount_cents);
+        $this->assertSame($credit->id, (int) $debt->fresh()->category_id);
+
+        $html = Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $object])
+            ->html();
+
+        $this->assertSame(1, substr_count($html, 'data-plan-category="'.$rent->id.'"'));
+        $this->assertSame(1, substr_count($html, 'wire:model="categoryIds" value="'.$rent->id.'"'));
+        $this->assertStringNotContainsString('data-plan-category="'.$schedule->id.'"', $html);
+    }
+
     public function test_card_saves_with_name_kind_and_label_when_nothing_exists_to_attach(): void
     {
         [$user] = $this->family('Пустая');

@@ -10,7 +10,9 @@ use App\Models\Debt;
 use App\Models\DebtInstallment;
 use App\Models\Household;
 use App\Models\PlanLine;
+use App\Models\PlanTemplate;
 use App\Models\PropertyContract;
+use App\Models\Transaction;
 use App\Models\PropertyObject;
 use App\Services\Budget\PeriodGenerator;
 use App\Support\CategoryTree;
@@ -413,17 +415,26 @@ class PropertyObjectForm extends Component
                 ->where('household_id', $household->id)
                 ->whereNotNull('category_id')
                 ->pluck('category_id');
-            $category = Category::query()
+            $sameName = Category::query()
                 ->where('household_id', $household->id)
                 ->where('type', CashflowType::Expense)
                 ->where('name', $object->name)
                 ->whereNotIn('id', $taken)
                 ->orderBy('id')
-                ->first();
+                ->get();
+            $blocked = $sameName->contains(function (Category $candidate) use ($parentId): bool {
+                if ($parentId !== null && (int) $candidate->id === $parentId) {
+                    return true;
+                }
 
-            if ($category instanceof Category && $parentId !== null && (int) $category->id === $parentId) {
-                $category = null;
+                return ! $this->categoryCanBeObjectFolder($candidate);
+            });
+
+            if ($blocked) {
+                throw ValidationException::withMessages(['name' => __('Такая категория уже есть.')]);
             }
+
+            $category = $sameName->first();
 
             if (! $category instanceof Category) {
                 $category = Category::query()->create([
@@ -446,7 +457,21 @@ class PropertyObjectForm extends Component
             $category->update(['parent_id' => $parentId]);
         }
 
-        return $category->fresh();
+        $category = $category->fresh();
+        $this->foldSameName($category);
+        $this->nameTheObjectCategory($category->fresh(), $object->name);
+        $category = $category->fresh();
+        $this->foldSameName($category);
+        $descendants = CategoryTree::descendantIds(
+            Category::query()->where('household_id', $household->id)->get(['id', 'parent_id']),
+            (int) $category->id,
+        );
+
+        foreach (Category::query()->whereIn('id', $descendants)->orderBy('id')->get() as $child) {
+            $this->foldSameName($child);
+        }
+
+        return $category;
     }
 
     private function categoryIsUnder(Household $household, int $categoryId, int $ancestorId): bool
@@ -489,6 +514,40 @@ class PropertyObjectForm extends Component
         }
     }
 
+    /**
+     * The object folder wears the card name. An empty leaf of that name is
+     * folded by the usual rule. A folder that already has children, a debt
+     * header, or another object's category stays put, and the card keeps its
+     * own folder instead of opening a second one.
+     */
+    private function nameTheObjectCategory(Category $category, string $name): void
+    {
+        if ($category->name === $name) {
+            return;
+        }
+
+        $others = Category::query()
+            ->where('household_id', $category->household_id)
+            ->where('type', $category->type)
+            ->where('name', $name)
+            ->whereKeyNot($category->id)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($others as $other) {
+            if (! $this->categoryCanJoin($category, $other)) {
+                throw ValidationException::withMessages(['name' => __('Такая категория уже есть.')]);
+            }
+        }
+
+        $category->update(['name' => $name]);
+    }
+
+    /**
+     * One expense name lives in one place. A category already under the object
+     * is reused. The same name elsewhere is moved here, and any leftover copy
+     * is folded in. Nothing is copied, and a debt's own category stays put.
+     */
     private function childCategory(Category $parent, string $name, string $errorKey = 'expenseName'): Category
     {
         $existing = Category::query()
@@ -499,16 +558,36 @@ class PropertyObjectForm extends Component
             ->first();
 
         if ($existing instanceof Category) {
-            return $existing;
+            $this->foldSameName($existing);
+
+            return $existing->fresh();
         }
 
-        $elsewhere = Category::query()
+        $movable = Category::query()
+            ->where('household_id', $parent->household_id)
+            ->where('type', CashflowType::Expense)
+            ->where('name', $name)
+            ->orderBy('id')
+            ->get()
+            ->first(fn (Category $candidate): bool => $this->categoryCanJoin($parent, $candidate));
+
+        if ($movable instanceof Category) {
+            if ((int) ($movable->parent_id ?? 0) !== (int) $parent->id) {
+                $movable->update(['parent_id' => $parent->id]);
+            }
+
+            $this->foldSameName($movable);
+
+            return $movable->fresh();
+        }
+
+        $blocked = Category::query()
             ->where('household_id', $parent->household_id)
             ->where('type', CashflowType::Expense)
             ->where('name', $name)
             ->exists();
 
-        if ($elsewhere) {
+        if ($blocked) {
             throw ValidationException::withMessages([$errorKey => __('Такая категория уже есть.')]);
         }
 
@@ -519,6 +598,82 @@ class PropertyObjectForm extends Component
             'name' => $name,
             'sort' => ((int) Category::query()->where('household_id', $parent->household_id)->max('sort')) + 1,
         ]);
+    }
+
+    private function foldSameName(Category $keeper): void
+    {
+        $others = Category::query()
+            ->where('household_id', $keeper->household_id)
+            ->where('type', $keeper->type)
+            ->where('name', $keeper->name)
+            ->whereKeyNot($keeper->id)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($others as $extra) {
+            if (! $this->categoryCanJoin($keeper, $extra)) {
+                continue;
+            }
+
+            $this->repointCategory($extra, $keeper);
+            $extra->delete();
+        }
+    }
+
+    /**
+     * A leaf expense can join the object. An object folder, a debt header such
+     * as «Кредит», and any category that still has children stay where they are.
+     */
+    private function categoryCanJoin(Category $parent, Category $candidate): bool
+    {
+        if ((int) $candidate->id === (int) $parent->id) {
+            return false;
+        }
+
+        if (! $this->categoryCanBeObjectFolder($candidate)) {
+            return false;
+        }
+
+        $parent->loadMissing('household');
+
+        return ! $this->categoryIsUnder($parent->household, (int) $parent->id, (int) $candidate->id);
+    }
+
+    private function categoryCanBeObjectFolder(Category $candidate): bool
+    {
+        if ($candidate->children()->exists()) {
+            return false;
+        }
+
+        if (PropertyObject::query()->where('category_id', $candidate->id)->exists()) {
+            return false;
+        }
+
+        return ! Debt::query()->where('category_id', $candidate->id)->exists();
+    }
+
+    private function repointCategory(Category $extra, Category $keeper): void
+    {
+        PlanLine::query()->where('category_id', $extra->id)->update(['category_id' => $keeper->id]);
+        Transaction::query()->where('category_id', $extra->id)->update(['category_id' => $keeper->id]);
+        PlanTemplate::query()->where('category_id', $extra->id)->update(['category_id' => $keeper->id]);
+
+        $rows = DB::table('shopping_list_categories')->where('category_id', $extra->id)->get();
+
+        foreach ($rows as $row) {
+            $taken = DB::table('shopping_list_categories')
+                ->where('shopping_list_id', $row->shopping_list_id)
+                ->where('category_id', $keeper->id)
+                ->exists();
+
+            if ($taken) {
+                DB::table('shopping_list_categories')->where('id', $row->id)->delete();
+            } else {
+                DB::table('shopping_list_categories')->where('id', $row->id)->update(['category_id' => $keeper->id]);
+            }
+        }
+
+        DB::table('shopping_list_items')->where('category_id', $extra->id)->update(['category_id' => $keeper->id]);
     }
 
     private function putPlanLine(PeriodGenerator $periods, PropertyObject $object, Category $category, string $title, int $cents, CarbonImmutable $date): PlanLine
