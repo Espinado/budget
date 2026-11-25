@@ -59,7 +59,7 @@
         </div>
         <label class="block">
             <span class="text-base text-stone-600">{{ $newKind === 'bank' && $newOrigin === 'running' ? __('Сколько осталось основной суммы') : __('Сумма') }}</span>
-            <input wire:model.live="newAmount" inputmode="decimal" autocomplete="off" placeholder="0,00" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newAmount') ? 'field-invalid' : '' }}">
+            <input wire:model.live="newAmount" data-money inputmode="decimal" autocomplete="off" placeholder="0,00" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newAmount') ? 'field-invalid' : '' }}">
         </label>
         @if (($newKind === 'personal' && $newMode === 'parts') || ($newKind === 'bank' && $newOrigin === 'new'))
             <label class="block">
@@ -81,12 +81,12 @@
                     {{ __('Дата ежемесячного платежа') }}
                 @endif
             </span>
-            <input wire:model.live="newDate" type="date" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newDate') ? 'field-invalid' : '' }}">
+            <x-date-input wire:model.live="newDate" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newDate') ? 'field-invalid' : '' }}" />
         </label>
         @if ($newKind === 'bank' && $newOrigin === 'running')
             <label class="block">
                 <span class="text-base text-stone-600">{{ __('Дата окончания из банка') }}</span>
-                <input wire:model.live="newEnd" type="date" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newEnd') ? 'field-invalid' : '' }}">
+                <x-date-input wire:model.live="newEnd" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newEnd') ? 'field-invalid' : '' }}" />
             </label>
         @endif
         @if ($newKind === 'bank')
@@ -117,23 +117,23 @@
                 </div>
                 <label class="block">
                     <span class="text-base text-stone-600">{{ __('Дата следующей смены ставки') }}</span>
-                    <input wire:model.live="newReset" type="date" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newReset') ? 'field-invalid' : '' }}">
+                    <x-date-input wire:model.live="newReset" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newReset') ? 'field-invalid' : '' }}" />
                 </label>
             @endif
             @if ($newProduct === 'leasing')
                 <label class="block">
                     <span class="text-base text-stone-600">{{ __('Сколько останется выкупить в конце') }}</span>
-                    <input wire:model.live="newResidual" inputmode="decimal" autocomplete="off" placeholder="{{ __('необязательно') }}" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newResidual') ? 'field-invalid' : '' }}">
+                    <input wire:model.live="newResidual" data-money inputmode="decimal" autocomplete="off" placeholder="{{ __('необязательно') }}" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newResidual') ? 'field-invalid' : '' }}">
                 </label>
             @endif
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <label class="block">
                     <span class="text-base text-stone-600">{{ __('Ежемесячная плата') }}</span>
-                    <input wire:model.live="newMonthlyFee" inputmode="decimal" autocomplete="off" placeholder="{{ __('необязательно') }}" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newMonthlyFee') ? 'field-invalid' : '' }}">
+                    <input wire:model.live="newMonthlyFee" data-money inputmode="decimal" autocomplete="off" placeholder="{{ __('необязательно') }}" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newMonthlyFee') ? 'field-invalid' : '' }}">
                 </label>
                 <label class="block">
                     <span class="text-base text-stone-600">{{ __('Плата за выдачу') }}</span>
-                    <input wire:model.live="newIssuanceFee" inputmode="decimal" autocomplete="off" placeholder="{{ __('необязательно') }}" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newIssuanceFee') ? 'field-invalid' : '' }}">
+                    <input wire:model.live="newIssuanceFee" data-money inputmode="decimal" autocomplete="off" placeholder="{{ __('необязательно') }}" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('newIssuanceFee') ? 'field-invalid' : '' }}">
                 </label>
             </div>
         @endif

@@ -17,6 +17,9 @@ use App\Services\Budget\PeriodCalendar;
 use App\Services\Budget\PeriodGenerator;
 use App\Services\Budget\PeriodSummary;
 use App\Livewire\Concerns\NormalizesMoneyInput;
+use App\Livewire\Concerns\PresentsDayFirstDates;
+use App\Rules\AppDay;
+use App\Support\AppDate;
 use App\Support\CategoryIcons;
 use App\Support\CategoryTree;
 use App\Support\DeleteOwnAccount;
@@ -35,6 +38,7 @@ use Livewire\Component;
 class Settings extends Component
 {
     use NormalizesMoneyInput;
+    use PresentsDayFirstDates;
 
     #[Url(as: 'period')]
     public ?int $periodId = null;
@@ -450,11 +454,10 @@ class Settings extends Component
             'templateCategoryIds.*' => ['integer'],
             'templateNotes.*' => ['nullable', 'string', 'max:80'],
             'templateAmounts.*' => ['nullable', 'regex:/^\d+([.,]\d{1,2})?$/'],
-            'templateDates.*' => ['nullable', 'date'],
+            'templateDates.*' => ['nullable', new AppDay],
         ], [
             'templateNotes.*.max' => __('Примечание не длиннее 80 знаков.'),
             'templateAmounts.*.regex' => __('Сумма в евро, до двух знаков после запятой.'),
-            'templateDates.*.date' => __('Укажите дату.'),
         ]);
 
         $household = $this->household();
@@ -490,6 +493,18 @@ class Settings extends Component
             $note = trim($this->repeatingValue($this->templateNotes, $categoryId));
             $amountRaw = trim($this->repeatingValue($this->templateAmounts, $categoryId));
             $dateRaw = trim($this->repeatingValue($this->templateDates, $categoryId));
+            $expectedDay = null;
+
+            if ($dateRaw !== '') {
+                $expectedDay = AppDate::parse($dateRaw);
+
+                if ($expectedDay === null) {
+                    throw ValidationException::withMessages([
+                        'templateDates.'.$categoryId => __('Укажите дату.'),
+                    ]);
+                }
+            }
+
             $cents = $amountRaw === '' ? 0 : Money::toCents($amountRaw);
 
             if ($cents === null || $cents < 0) {
@@ -501,7 +516,7 @@ class Settings extends Component
             $attributes = [
                 'title' => $note !== '' ? $note : $category->name,
                 'amount_cents' => $cents,
-                'expected_day' => $dateRaw === '' ? null : (int) CarbonImmutable::parse($dateRaw)->day,
+                'expected_day' => $expectedDay?->day,
                 'active' => true,
             ];
 
@@ -845,8 +860,17 @@ class Settings extends Component
         session()->flash('status', __('Приглашение отправлено на ').$email.__('. По ссылке из письма задаётся пароль, и можно входить в общий бюджет.'));
     }
 
+    /**
+     * @return list<string>
+     */
+    protected function dayFirstDateFields(): array
+    {
+        return ['templateDates'];
+    }
+
     public function render(PeriodCalendar $calendar, PeriodSummary $summary)
     {
+        $this->presentDayFirstDates();
         $household = $this->household();
         $period = $this->period();
         $anchor = max(1, min(31, (int) $this->anchorDay));

@@ -42,7 +42,7 @@ class HelpTest extends TestCase
             ->assertSee('Личные')
             ->assertSee('Кредиты')
             ->assertSee('в день')
-            ->assertSee('дд/мм/гггг')
+            ->assertSee('дд.мм.гггг')
             ->assertSee('Объекты')
             ->assertSee('Под категорией')
             ->assertSee('Сам родитель')

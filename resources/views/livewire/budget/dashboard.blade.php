@@ -259,7 +259,7 @@
                 </label>
                 <label class="block">
                     <span class="text-base text-stone-500">{{ __('Дата') }}</span>
-                    <input type="date" wire:model="transferDate" min="{{ $factFrom }}" max="{{ $factTo }}" class="mt-1 block w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-base {{ $errors->has('transferDate') ? 'field-invalid' : '' }}">
+                    <x-date-input wire:model="transferDate" class="mt-1 block w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-base {{ $errors->has('transferDate') ? 'field-invalid' : '' }}" />
                     @error('transferDate') <p class="mt-1 text-base leading-snug text-rose-700">{{ $message }}</p> @enderror
                 </label>
             </div>
@@ -311,7 +311,7 @@
                 @error('quickCategoryIcon') <p class="mt-1 text-base text-rose-700">{{ $message }}</p> @enderror
                 <label class="block">
                     <span class="text-base text-stone-600">{{ __('Дата') }}</span>
-                    <input type="date" wire:model="entryDate" min="{{ $factFrom }}" max="{{ $factTo }}" class="mt-1 w-full rounded-2xl border border-stone-200 px-3 py-2.5 outline-none focus:border-tide {{ $errors->has('entryDate') ? 'field-invalid' : '' }}">
+                    <x-date-input wire:model="entryDate" class="mt-1 w-full rounded-2xl border border-stone-200 px-3 py-2.5 outline-none focus:border-tide {{ $errors->has('entryDate') ? 'field-invalid' : '' }}" />
                 </label>
                 <label class="block sm:col-span-2">
                     <span class="text-base text-stone-600">{{ __('Счёт') }}</span>
@@ -396,7 +396,7 @@
                 </label>
                 <label class="block min-w-0">
                     <span class="text-base text-stone-600">{{ __('Дата платежа, можно пусто') }}</span>
-                    <input type="date" wire:model="newPlanDate" min="{{ $period->starts_on->toDateString() }}" max="{{ $period->ends_on->toDateString() }}" class="mt-1 w-full min-w-0 rounded-2xl border border-stone-200 px-3 py-2.5 outline-none focus:border-tide {{ $errors->has('newPlanDate') ? 'field-invalid' : '' }}">
+                    <x-date-input wire:model="newPlanDate" class="mt-1 w-full min-w-0 rounded-2xl border border-stone-200 px-3 py-2.5 outline-none focus:border-tide {{ $errors->has('newPlanDate') ? 'field-invalid' : '' }}" />
                 </label>
             </div>
             @error('newPlanCategoryId') <p class="mt-2 text-base text-rose-700">{{ $message }}</p> @enderror

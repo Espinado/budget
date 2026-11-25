@@ -21,6 +21,9 @@ use App\Services\Budget\PeriodGenerator;
 use App\Services\Budget\PeriodSummary;
 use App\Services\Budget\Solvency;
 use App\Livewire\Concerns\NormalizesMoneyInput;
+use App\Livewire\Concerns\PresentsDayFirstDates;
+use App\Rules\AppDay;
+use App\Support\AppDate;
 use App\Support\CategoryIcons;
 use App\Support\CategoryTree;
 use App\Support\Money;
@@ -37,6 +40,7 @@ use Livewire\WithFileUploads;
 class Dashboard extends Component
 {
     use NormalizesMoneyInput;
+    use PresentsDayFirstDates;
     use WithFileUploads;
     #[Url(as: 'period')]
     public ?int $periodId = null;
@@ -246,7 +250,7 @@ class Dashboard extends Component
 
         $this->validate([
             'operationAmount' => ['required', 'regex:/^\d+([.,]\d{1,2})?$/'],
-            'operationDate' => ['required', 'date'],
+            'operationDate' => ['required', new AppDay],
             'operationNote' => ['nullable', 'string', 'max:200'],
             'operationLineId' => ['required', 'integer', 'min:1'],
             'operationAccountId' => ['required', 'integer', 'min:1'],
@@ -271,7 +275,7 @@ class Dashboard extends Component
             ]);
         }
 
-        $this->refuseFactOutsideCurrent(CarbonImmutable::parse($this->operationDate), 'operationDate', $periods);
+        $this->refuseFactOutsideCurrent($this->typedDay($this->operationDate, 'operationDate'), 'operationDate', $periods);
 
         $line = $this->ownedLine((int) $this->operationLineId)->load('category');
         $account = $this->requireAccount($this->operationAccountId, 'operationAccountId');
@@ -287,7 +291,7 @@ class Dashboard extends Component
             $line->category,
             $line->category->type,
             $cents,
-            CarbonImmutable::parse($this->operationDate),
+            $this->typedDay($this->operationDate, 'operationDate'),
             $this->operationNote !== '' ? $this->operationNote : null,
             $line,
             auth()->id(),
@@ -385,7 +389,7 @@ class Dashboard extends Component
             'quickAmount' => ['required', 'regex:/^\d+([.,]\d{1,2})?$/'],
             'quickCategoryId' => ['required', 'integer', 'min:1'],
             'quickAccountId' => ['required', 'integer', 'min:1'],
-            'quickDate' => ['required', 'date'],
+            'quickDate' => ['required', new AppDay],
             'quickNote' => ['nullable', 'string', 'max:200'],
             'quickReceipt' => ['nullable', 'image', 'max:8192'],
         ], [
@@ -420,7 +424,7 @@ class Dashboard extends Component
             ]);
         }
 
-        $date = CarbonImmutable::parse($this->quickDate);
+        $date = $this->typedDay($this->quickDate, 'quickDate');
         $this->refuseFactOutsideCurrent($date, 'quickDate', $periods);
         $period = $periods->periodFor($this->household(), $date);
         $account = $this->requireAccount($this->quickAccountId, 'quickAccountId');
@@ -478,7 +482,13 @@ class Dashboard extends Component
             return collect();
         }
 
-        $period = app(PeriodGenerator::class)->periodFor($this->household(), CarbonImmutable::parse($this->quickDate));
+        $quickDay = AppDate::parse($this->quickDate);
+
+        if ($quickDay === null) {
+            return collect();
+        }
+
+        $period = app(PeriodGenerator::class)->periodFor($this->household(), $quickDay);
 
         return $period->planLines()
             ->with('installment')
@@ -536,7 +546,7 @@ class Dashboard extends Component
             'transferFromId' => ['required', 'integer'],
             'transferToId' => ['required', 'integer'],
             'transferAmount' => ['required', 'regex:/^\d+([.,]\d{1,2})?$/'],
-            'transferDate' => ['required', 'date'],
+            'transferDate' => ['required', new AppDay],
             'transferNote' => ['nullable', 'string', 'max:200'],
         ], [
             'transferFromId.required' => __('Выберите счёт, откуда перевести.'),
@@ -560,7 +570,8 @@ class Dashboard extends Component
             ]);
         }
 
-        $this->refuseFactOutsideCurrent(CarbonImmutable::parse($this->transferDate), 'transferDate', app(PeriodGenerator::class));
+        $transferDay = $this->typedDay($this->transferDate, 'transferDate');
+        $this->refuseFactOutsideCurrent($transferDay, 'transferDate', app(PeriodGenerator::class));
 
         $from = $this->ownedAccount((int) $this->transferFromId);
         $to = $this->ownedAccount((int) $this->transferToId);
@@ -570,7 +581,7 @@ class Dashboard extends Component
             'from_account_id' => $from->id,
             'to_account_id' => $to->id,
             'amount_cents' => $cents,
-            'occurred_on' => CarbonImmutable::parse($this->transferDate)->toDateString(),
+            'occurred_on' => $transferDay->toDateString(),
             'note' => $this->transferNote !== '' ? $this->transferNote : null,
             'created_by' => auth()->id(),
         ]);
@@ -800,7 +811,7 @@ class Dashboard extends Component
             'entryAmount' => ['required', 'regex:/^\d+([.,]\d{1,2})?$/'],
             'entryCategoryId' => ['required', 'integer', 'min:1'],
             'entryAccountId' => ['required', 'integer', 'min:1'],
-            'entryDate' => ['required', 'date'],
+            'entryDate' => ['required', new AppDay],
             'entryNote' => ['nullable', 'string', 'max:200'],
         ], [
             'entryAmount.required' => __('Укажите сумму.'),
@@ -832,7 +843,7 @@ class Dashboard extends Component
             ]);
         }
 
-        $date = CarbonImmutable::parse($this->entryDate);
+        $date = $this->typedDay($this->entryDate, 'entryDate');
         $this->refuseFactOutsideCurrent($date, 'entryDate', $periods);
         $period = $periods->periodFor($household, $date);
 
@@ -878,13 +889,12 @@ class Dashboard extends Component
             'newPlanCategoryId' => ['required', 'integer', 'min:1'],
             'newPlanTitle' => ['nullable', 'string', 'max:80'],
             'newPlanAmount' => ['required', 'regex:/^\d+([.,]\d{1,2})?$/'],
-            'newPlanDate' => ['nullable', 'date'],
+            'newPlanDate' => ['nullable', new AppDay(__('Проверьте дату.'))],
         ], [
             'newPlanCategoryId.required' => __('Выберите категорию.'),
             'newPlanCategoryId.min' => __('Выберите категорию.'),
             'newPlanAmount.required' => __('Укажите сумму.'),
             'newPlanAmount.regex' => __('Сумма в евро, до двух знаков после запятой.'),
-            'newPlanDate.date' => __('Проверьте дату.'),
         ]);
 
         $cents = Money::toCents((string) $this->newPlanAmount);
@@ -900,7 +910,13 @@ class Dashboard extends Component
         $expectedOn = null;
 
         if (trim($this->newPlanDate) !== '') {
-            $expectedOn = CarbonImmutable::parse($this->newPlanDate)->startOfDay();
+            $expectedOn = AppDate::parse($this->newPlanDate);
+
+            if ($expectedOn === null) {
+                throw ValidationException::withMessages([
+                    'newPlanDate' => __('Проверьте дату.'),
+                ]);
+            }
             $day = $expectedOn->toDateString();
 
             if ($day < $period->starts_on->toDateString() || $day > $period->ends_on->toDateString()) {
@@ -1061,7 +1077,7 @@ class Dashboard extends Component
             'editAmount' => ['required', 'regex:/^\d+([.,]\d{1,2})?$/'],
             'editCategoryId' => ['required', 'integer'],
             'editAccountId' => ['required', 'integer'],
-            'editDate' => ['required', 'date'],
+            'editDate' => ['required', new AppDay],
             'editNote' => ['nullable', 'string', 'max:200'],
         ], [
             'editAmount.required' => __('Укажите сумму.'),
@@ -1087,7 +1103,8 @@ class Dashboard extends Component
             ]);
         }
 
-        $this->refuseFactOutsideCurrent(CarbonImmutable::parse($this->editDate), 'editDate', $periods);
+        $editDay = $this->typedDay($this->editDate, 'editDate');
+        $this->refuseFactOutsideCurrent($editDay, 'editDate', $periods);
 
         $category = Category::query()
             ->where('household_id', $this->household()->id)
@@ -1106,7 +1123,7 @@ class Dashboard extends Component
             $transaction,
             $category,
             $cents,
-            CarbonImmutable::parse($this->editDate),
+            $editDay,
             $this->editNote !== '' ? $this->editNote : null,
             $account,
         );
@@ -1225,7 +1242,7 @@ class Dashboard extends Component
 
         $this->validate([
             'lineCategoryId' => ['required', 'integer'],
-            'lineDate' => ['nullable', 'date'],
+            'lineDate' => ['nullable', new AppDay],
             'lineAccountId' => ['nullable', 'integer'],
             'lineAmount' => ['nullable', 'regex:/^\d+([.,]\d{1,2})?$/'],
         ], [
@@ -1260,10 +1277,22 @@ class Dashboard extends Component
             ? Account::query()->where('household_id', $this->household()->id)->whereKey($this->lineAccountId)->value('id')
             : null;
 
+        $expectedOn = null;
+
+        if (trim($this->lineDate) !== '') {
+            $expectedOn = AppDate::parse($this->lineDate)?->toDateString();
+
+            if ($expectedOn === null) {
+                throw ValidationException::withMessages([
+                    'lineDate' => __('Укажите дату.'),
+                ]);
+            }
+        }
+
         $line->update([
             'category_id' => $category->id,
             'amount_cents' => $cents,
-            'expected_on' => $this->lineDate !== '' ? $this->lineDate : null,
+            'expected_on' => $expectedOn,
             'account_id' => $accountId,
         ]);
         $this->planAmounts[$line->id] = $cents === 0 ? '' : Money::toInput($cents);
@@ -1417,8 +1446,17 @@ class Dashboard extends Component
         return $suggestions;
     }
 
+    /**
+     * @return list<string>
+     */
+    protected function dayFirstDateFields(): array
+    {
+        return ['quickDate', 'transferDate', 'entryDate', 'operationDate', 'editDate', 'newPlanDate', 'lineDate'];
+    }
+
     public function render(PeriodSummary $summary, PeriodCalendar $calendar)
     {
+        $this->presentDayFirstDates();
         $period = $this->period()->load(['planLines.account', 'planLines.transactions', 'household.accounts']);
         $groups = $summary->groups($period);
         $now = CarbonImmutable::now($period->household->timezone ?: 'Europe/Riga');
@@ -1690,6 +1728,19 @@ class Dashboard extends Component
     private function household(): Household
     {
         return auth()->user()->currentHousehold();
+    }
+
+    private function typedDay(string $raw, string $key): CarbonImmutable
+    {
+        $date = AppDate::parse($raw);
+
+        if ($date === null) {
+            throw ValidationException::withMessages([
+                $key => __('Укажите дату.'),
+            ]);
+        }
+
+        return $date;
     }
 
     private function today(): CarbonImmutable

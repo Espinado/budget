@@ -7,6 +7,8 @@ use App\Models\Category;
 use App\Models\Household;
 use App\Models\Transaction;
 use App\Models\Transfer;
+use App\Livewire\Concerns\PresentsDayFirstDates;
+use App\Support\AppDate;
 use App\Support\CategoryTree;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -16,6 +18,7 @@ use Livewire\Component;
 
 class Statistics extends Component
 {
+    use PresentsDayFirstDates;
     #[Url(as: 'range')]
     public string $range = 'month';
 
@@ -52,8 +55,8 @@ class Statistics extends Component
         }
 
         [$start, $end] = $this->preset($this->range);
-        $this->from = $start->toDateString();
-        $this->to = $end->toDateString();
+        $this->from = $start->format('d.m.Y');
+        $this->to = $end->format('d.m.Y');
 
         if ($this->category === null) {
             return;
@@ -87,8 +90,8 @@ class Statistics extends Component
         }
 
         [$start, $end] = $this->preset($range);
-        $this->from = $start->toDateString();
-        $this->to = $end->toDateString();
+        $this->from = $start->format('d.m.Y');
+        $this->to = $end->format('d.m.Y');
     }
 
     public function updatedFrom(): void
@@ -219,8 +222,17 @@ class Statistics extends Component
             ->findOrFail($transferId);
     }
 
+    /**
+     * @return list<string>
+     */
+    protected function dayFirstDateFields(): array
+    {
+        return ['from', 'to'];
+    }
+
     public function render()
     {
+        $this->presentDayFirstDates();
         $bounds = $this->bounds();
         $transactions = $bounds === null
             ? collect()
@@ -291,8 +303,8 @@ class Statistics extends Component
         }
 
         return [
-            CarbonImmutable::createFromFormat('Y-m-d', $this->from)->startOfDay(),
-            CarbonImmutable::createFromFormat('Y-m-d', $this->to)->startOfDay(),
+            AppDate::parse($this->from)->startOfDay(),
+            AppDate::parse($this->to)->startOfDay(),
         ];
     }
 
@@ -302,8 +314,12 @@ class Statistics extends Component
             return __('Укажите обе даты.');
         }
 
-        $start = CarbonImmutable::createFromFormat('Y-m-d', $this->from)->startOfDay();
-        $end = CarbonImmutable::createFromFormat('Y-m-d', $this->to)->startOfDay();
+        $start = AppDate::parse($this->from);
+        $end = AppDate::parse($this->to);
+
+        if ($start === null || $end === null) {
+            return __('Укажите обе даты.');
+        }
 
         if ($end->lt($start)) {
             return __('Дата «по» не может быть раньше даты «с».');
@@ -319,13 +335,7 @@ class Statistics extends Component
 
     private function isDate(string $value): bool
     {
-        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
-            return false;
-        }
-
-        $parsed = CarbonImmutable::createFromFormat('Y-m-d', $value);
-
-        return $parsed !== false && $parsed->format('Y-m-d') === $value;
+        return AppDate::parse($value) !== null;
     }
 
     /**

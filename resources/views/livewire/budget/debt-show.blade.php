@@ -49,7 +49,7 @@
                         <p class="text-base text-stone-600">{{ __('Остаток из приложения кредитора. Проценты обнуляются и снова капают со следующего дня.') }}</p>
                         <label class="block">
                             <span class="text-base text-stone-600">{{ __('Остаток') }}</span>
-                            <input wire:model="balanceTotal" inputmode="decimal" autocomplete="off" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('balanceTotal') ? 'field-invalid' : '' }}">
+                            <input wire:model="balanceTotal" data-money inputmode="decimal" autocomplete="off" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('balanceTotal') ? 'field-invalid' : '' }}">
                         </label>
                         @error('balanceTotal') <p class="text-base text-rose-700">{{ $message }}</p> @enderror
                         <button type="submit" class="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-base font-medium text-white sm:w-auto">{{ __('Сохранить') }}</button>
@@ -117,11 +117,11 @@
                             <p class="text-base text-stone-600 sm:col-span-2">{{ __('Новая ставка действует с ближайшего неоплаченного платежа. Дата окончания договора не меняется. Новая плата входит со следующего месяца, ближайший платёж её не меняет. Пустое поле значит, что платы нет. Плата за выдачу относится только к первому платежу.') }}</p>
                             <label class="block">
                                 <span class="text-base text-stone-600">{{ __('Ежемесячная плата') }}</span>
-                                <input wire:model="feeMonthly" inputmode="decimal" autocomplete="off" placeholder="{{ __('необязательно') }}" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('feeMonthly') ? 'field-invalid' : '' }}">
+                                <input wire:model="feeMonthly" data-money inputmode="decimal" autocomplete="off" placeholder="{{ __('необязательно') }}" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('feeMonthly') ? 'field-invalid' : '' }}">
                             </label>
                             <label class="block">
                                 <span class="text-base text-stone-600">{{ __('Плата за выдачу') }}</span>
-                                <input wire:model="feeIssuance" inputmode="decimal" autocomplete="off" placeholder="{{ __('необязательно') }}" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('feeIssuance') ? 'field-invalid' : '' }}">
+                                <input wire:model="feeIssuance" data-money inputmode="decimal" autocomplete="off" placeholder="{{ __('необязательно') }}" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide {{ $errors->has('feeIssuance') ? 'field-invalid' : '' }}">
                             </label>
                         @endif
                         @if ($canChangeRate)

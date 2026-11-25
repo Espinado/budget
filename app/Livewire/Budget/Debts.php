@@ -6,6 +6,8 @@ use App\Enums\AccountRole;
 use App\Enums\DebtDirection;
 use App\Enums\DebtKind;
 use App\Livewire\Budget\Concerns\RecordsDebt;
+use App\Livewire\Concerns\NormalizesMoneyInput;
+use App\Livewire\Concerns\PresentsDayFirstDates;
 use App\Models\Debt;
 use App\Models\Household;
 use App\Services\Budget\Solvency;
@@ -14,13 +16,24 @@ use Livewire\Component;
 
 class Debts extends Component
 {
+    use NormalizesMoneyInput;
+    use PresentsDayFirstDates;
     use RecordsDebt;
 
     #[On('family-pulse')]
     public function refreshFromFamily(): void {}
 
+    /**
+     * @return list<string>
+     */
+    protected function dayFirstDateFields(): array
+    {
+        return ['newDate', 'newEnd', 'newReset'];
+    }
+
     public function render()
     {
+        $this->presentDayFirstDates();
         $debts = Debt::query()
             ->where('household_id', $this->household()->id)
             ->with('installments')

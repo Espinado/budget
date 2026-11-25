@@ -264,7 +264,7 @@
                                     <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
                                         <input wire:model="templateNotes.{{ $category->id }}" maxlength="80" placeholder="{{ __('Примечание, можно пусто') }}" class="min-w-0 rounded-2xl border border-stone-200 px-3 py-3 {{ $errors->has('templateNotes.'.$category->id) ? 'field-invalid' : '' }}">
                                         <input wire:model="templateAmounts.{{ $category->id }}" data-money inputmode="decimal" placeholder="{{ __('Сумма, можно пусто') }}" class="min-w-0 rounded-2xl border border-stone-200 px-3 py-3 {{ $errors->has('templateAmounts.'.$category->id) ? 'field-invalid' : '' }}">
-                                        <input type="date" wire:model="templateDates.{{ $category->id }}" aria-label="{{ __('Дата, можно пусто') }}" class="min-w-0 rounded-2xl border border-stone-200 px-3 py-3 {{ $errors->has('templateDates.'.$category->id) ? 'field-invalid' : '' }}">
+                                        <x-date-input wire:model="templateDates.{{ $category->id }}" aria-label="{{ __('Дата, можно пусто') }}" class="min-w-0 rounded-2xl border border-stone-200 px-3 py-3 {{ $errors->has('templateDates.'.$category->id) ? 'field-invalid' : '' }}" />
                                     </div>
                                     @error('templateNotes.'.$category->id) <p class="mt-1 text-base text-rose-700">{{ $message }}</p> @enderror
                                     @error('templateAmounts.'.$category->id) <p class="mt-1 text-base text-rose-700">{{ $message }}</p> @enderror

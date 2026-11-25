@@ -17,7 +17,7 @@
     </div>
     <label class="block">
         <span class="text-base text-stone-500">{{ __('Дата, можно пусто') }}</span>
-        <input type="date" wire:model="lineDate" min="{{ $period->starts_on->toDateString() }}" max="{{ $period->ends_on->toDateString() }}" class="mt-1 w-full min-w-0 rounded-xl border border-stone-200 px-2 py-1.5 text-base outline-none focus:border-sky-500 sm:w-auto {{ $errors->has('lineDate') ? 'field-invalid' : '' }}">
+        <x-date-input wire:model="lineDate" class="mt-1 w-full min-w-0 rounded-xl border border-stone-200 px-2 py-1.5 text-base outline-none focus:border-sky-500 sm:w-auto {{ $errors->has('lineDate') ? 'field-invalid' : '' }}" />
     </label>
     <label class="block min-w-36">
         <span class="text-base text-stone-500">{{ __('Счёт') }}</span>

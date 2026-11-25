@@ -15,11 +15,11 @@
             <div class="mt-4 flex flex-wrap items-end gap-3">
                 <label class="block text-base">
                     <span class="mb-1 block text-stone-600">{{ __('С') }}</span>
-                    <input type="date" wire:model.live="from" class="rounded-2xl border border-stone-200 px-3 py-2">
+                    <x-date-input wire:model.live="from" class="rounded-2xl border border-stone-200 px-3 py-2" />
                 </label>
                 <label class="block text-base">
                     <span class="mb-1 block text-stone-600">{{ __('По') }}</span>
-                    <input type="date" wire:model.live="to" class="rounded-2xl border border-stone-200 px-3 py-2">
+                    <x-date-input wire:model.live="to" class="rounded-2xl border border-stone-200 px-3 py-2" />
                 </label>
             </div>
         @endif

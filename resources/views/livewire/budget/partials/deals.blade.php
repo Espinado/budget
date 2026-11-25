@@ -15,7 +15,7 @@
                                 </label>
                                 <label class="block">
                                     <span class="text-base text-stone-500">{{ __('Дата') }}</span>
-                                    <input type="date" wire:model="editDate" min="{{ $factFrom }}" max="{{ $factTo }}" class="mt-1 w-full min-w-0 rounded-xl border border-stone-200 px-2 py-3 text-lg outline-none focus:border-sky-500 sm:w-auto {{ $errors->has('editDate') ? 'field-invalid' : '' }}">
+                                    <x-date-input wire:model="editDate" class="mt-1 w-full min-w-0 rounded-xl border border-stone-200 px-2 py-3 text-lg outline-none focus:border-sky-500 sm:w-auto {{ $errors->has('editDate') ? 'field-invalid' : '' }}" />
                                 </label>
                                 <div class="block min-w-36">
                                     <span class="text-base text-stone-500">{{ __('Категория') }}</span>
@@ -92,7 +92,7 @@
             <tr wire:key="deal-{{ $transaction->id }}" class="budget-deals {{ $dealClass }}" @if ($dealShift) style="margin-left: {{ $dealShift }}" @endif>
                 <td colspan="6" class="px-4 py-2" @if ($dealPad) style="padding-left: {{ $dealPad }}" @endif>
                     <div class="deal-line">
-                        <span class="deal-date text-lg text-stone-700">{{ $transaction->occurred_on->format('d/m/Y') }}</span>
+                        <span class="deal-date text-lg text-stone-700">{{ ru_date($transaction->occurred_on) }}</span>
                         <span class="deal-note text-lg text-stone-600">{{ $transaction->note ?: '—' }}</span>
                         <span class="deal-amount text-lg font-medium tabular-nums">{{ money($transaction->amount_cents) }}</span>
                         <span class="deal-tools">

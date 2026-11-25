@@ -14,6 +14,8 @@ class MoneySeparatorTest extends TestCase
         $this->assertSame('12,50', Money::normalize('12,50'));
         $this->assertSame(1250, Money::toCents('12.50'));
         $this->assertSame(1250, Money::toCents('12,50'));
+        $this->assertSame(3209, Money::toCents('32.09'));
+        $this->assertSame(3209, Money::toCents('32,09'));
         $this->assertSame('0,00', Money::normalize('.00'));
         $this->assertSame('0,00', Money::normalize(',00'));
         $this->assertSame('0,50', Money::normalize('.50'));

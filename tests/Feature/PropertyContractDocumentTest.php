@@ -66,22 +66,46 @@ class PropertyContractDocumentTest extends TestCase
         $this->assertStringContainsString($url, $html);
         $this->assertStringContainsString('<dialog class="receipt-dialog"', $html);
         $this->assertStringContainsString('showModal()', $html);
+        $this->assertStringContainsString('Изменить контракт', $html);
+        $this->assertStringNotContainsString('Заменить документ', $html);
+        $this->assertStringNotContainsString('Убрать документ', $html);
+        $this->assertStringNotContainsString('replacementFiles', $html);
 
         $this->actingAs($user)
             ->get($url)
             ->assertOk()
             ->assertHeader('content-type', 'image/jpeg');
 
-        $replacement = UploadedFile::fake()->image('polis-2.jpg', 40, 60);
-        $card->set('replacementFiles.'.$contract->id, $replacement)->assertHasNoErrors();
         $kept = $contract->document_path;
-        $contract->refresh();
+        $replacement = UploadedFile::fake()->image('polis-2.jpg', 40, 60);
+        $card->call('editContract', $contract->id)
+            ->assertSet('contractTitle', 'ERGO')
+            ->assertSet('contractNote', 'полис 77')
+            ->assertSee('Заменить документ')
+            ->assertSee('Убрать документ')
+            ->set('contractDocument', $replacement)
+            ->call('cancelContract')
+            ->assertSet('showContract', false);
 
+        $contract->refresh();
+        $this->assertSame($kept, $contract->document_path);
+        Storage::disk('local')->assertExists($kept);
+        $this->assertSame([$kept], Storage::disk('local')->allFiles('contract-documents'));
+
+        $card->call('editContract', $contract->id)
+            ->set('contractDocument', $replacement)
+            ->call('saveContract')
+            ->assertHasNoErrors()
+            ->assertDontSee('Заменить документ');
+
+        $contract->refresh();
+        $this->assertSame(1, PropertyContract::query()->count());
         $this->assertNotSame($kept, $contract->document_path);
         Storage::disk('local')->assertMissing($kept);
         Storage::disk('local')->assertExists($contract->document_path);
         $this->assertSame([$contract->document_path], Storage::disk('local')->allFiles('contract-documents'));
         $this->assertSame('image/jpeg', $contract->document_mime);
+        $this->assertSame('polis-2.jpg', $contract->document_name);
 
         [$other] = $this->family('Чужая');
         $this->actingAs($other)
@@ -95,12 +119,23 @@ class PropertyContractDocumentTest extends TestCase
             ->get(route('objects.contracts.document', $contract))
             ->assertOk();
 
-        $card->call('removeContractDocument', $contract->id)
+        $removed = $contract->document_path;
+        $card->call('editContract', $contract->id)
+            ->call('clearContractDocument')
+            ->call('cancelContract');
+
+        $this->assertSame($removed, $contract->fresh()->document_path);
+        Storage::disk('local')->assertExists($removed);
+
+        $card->call('editContract', $contract->id)
+            ->call('clearContractDocument')
+            ->call('saveContract')
+            ->assertHasNoErrors()
             ->assertDontSeeHtml('class="receipt-preview"')
             ->assertDontSeeHtml('class="receipt-stage"');
 
         $this->assertNull($contract->fresh()->document_path);
-        Storage::disk('local')->assertMissing($contract->document_path);
+        Storage::disk('local')->assertMissing($removed);
         $this->assertSame([], Storage::disk('local')->allFiles('contract-documents'));
     }
 

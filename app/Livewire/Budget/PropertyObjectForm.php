@@ -5,6 +5,8 @@ namespace App\Livewire\Budget;
 use App\Enums\CashflowType;
 use App\Enums\PropertyObjectKind;
 use App\Livewire\Budget\Concerns\RecordsDebt;
+use App\Livewire\Concerns\NormalizesMoneyInput;
+use App\Livewire\Concerns\PresentsDayFirstDates;
 use App\Models\Category;
 use App\Models\Debt;
 use App\Models\DebtInstallment;
@@ -27,6 +29,8 @@ use Livewire\WithFileUploads;
 
 class PropertyObjectForm extends Component
 {
+    use NormalizesMoneyInput;
+    use PresentsDayFirstDates;
     use RecordsDebt;
     use WithFileUploads;
 
@@ -69,8 +73,9 @@ class PropertyObjectForm extends Component
 
     public mixed $contractDocument = null;
 
-    /** @var array<int, mixed> */
-    public array $replacementFiles = [];
+    public ?int $editingContractId = null;
+
+    public bool $dropContractDocument = false;
 
     public function mount(PropertyObject|string|null $propertyObject = null): void
     {
@@ -108,9 +113,31 @@ class PropertyObjectForm extends Component
         $this->showContract = true;
         $this->showExpense = false;
         $this->showNew = false;
-        $this->contractParts = [['amount' => '', 'date' => '']];
+        $this->resetContractForm();
+    }
+
+    public function editContract(int $contractId): void
+    {
+        $contract = $this->ownedContract($contractId);
+        $parts = [];
+
+        foreach ($contract->planLines()->orderBy('expected_on')->orderBy('id')->get() as $line) {
+            $parts[] = [
+                'amount' => Money::toInput((int) $line->amount_cents),
+                'date' => $line->expected_on?->format('d.m.Y') ?? '',
+            ];
+        }
+
+        $this->showContract = true;
+        $this->showExpense = false;
+        $this->showNew = false;
+        $this->editingContractId = $contract->id;
+        $this->dropContractDocument = false;
         $this->contractDocument = null;
-        $this->resetErrorBag('contractDocument');
+        $this->contractTitle = $contract->title;
+        $this->contractNote = (string) ($contract->note ?? '');
+        $this->contractParts = $parts === [] ? [['amount' => '', 'date' => '']] : $parts;
+        $this->resetErrorBag();
     }
 
     public function updatedContractDocument(): void
@@ -128,49 +155,21 @@ class PropertyObjectForm extends Component
         }
     }
 
-    public function updatedReplacementFiles(mixed $value, ?string $key = null): void
-    {
-        if (! $value instanceof TemporaryUploadedFile || $key === null || ! ctype_digit($key)) {
-            return;
-        }
-
-        $this->replaceContractDocument((int) $key);
-    }
-
     public function clearContractDocument(): void
     {
-        $this->contractDocument = null;
-        $this->resetErrorBag('contractDocument');
-    }
+        if ($this->contractDocument instanceof TemporaryUploadedFile) {
+            $this->contractDocument = null;
+            $this->resetErrorBag('contractDocument');
 
-    public function removeContractDocument(int $contractId): void
-    {
-        $contract = $this->ownedContract($contractId);
-        ContractDocuments::delete($contract->document_path);
-        $contract->update([
-            'document_path' => null,
-            'document_mime' => null,
-            'document_name' => null,
-        ]);
-    }
-
-    public function replaceContractDocument(int $contractId): void
-    {
-        $file = $this->replacementFiles[$contractId] ?? null;
-        unset($this->replacementFiles[$contractId]);
-
-        if (! $file instanceof TemporaryUploadedFile) {
             return;
         }
 
-        $stored = ContractDocuments::put($file, 'replacementFiles.'.$contractId);
-        $contract = $this->ownedContract($contractId);
-        $previous = $contract->document_path;
-        $contract->update($stored);
-
-        if (is_string($previous) && $previous !== $stored['document_path']) {
-            ContractDocuments::delete($previous);
+        if ($this->editingContractId !== null) {
+            $this->dropContractDocument = true;
         }
+
+        $this->contractDocument = null;
+        $this->resetErrorBag('contractDocument');
     }
 
     /**
@@ -211,8 +210,15 @@ class PropertyObjectForm extends Component
         $this->resetErrorBag();
     }
 
+    public function cancelContract(): void
+    {
+        $this->showContract = false;
+        $this->resetContractForm();
+    }
+
     public function saveExpense(PeriodGenerator $periods): void
     {
+        $this->expenseAmount = Money::normalize($this->expenseAmount);
         $object = $this->ownedObject();
         $name = trim($this->expenseName);
         $cents = Money::toCents($this->expenseAmount);
@@ -255,6 +261,15 @@ class PropertyObjectForm extends Component
 
     public function saveContract(PeriodGenerator $periods): void
     {
+        foreach ($this->contractParts as $index => $part) {
+            if (! is_array($part)) {
+                continue;
+            }
+
+            $part['amount'] = Money::normalize((string) ($part['amount'] ?? ''));
+            $this->contractParts[$index] = $part;
+        }
+
         $object = $this->ownedObject();
         $title = trim($this->contractTitle);
         $note = trim($this->contractNote);
@@ -300,26 +315,42 @@ class PropertyObjectForm extends Component
         }
 
         $categoryId = null;
+        $removePath = null;
+        $wasEdit = $this->editingContractId !== null;
 
         try {
-            DB::transaction(function () use ($periods, $object, $category, $title, $note, $parts, $stored, &$categoryId): void {
+            DB::transaction(function () use ($periods, $object, $category, $title, $note, $parts, $stored, $wasEdit, &$categoryId, &$removePath): void {
                 $child = $this->childCategory($category, $title, 'contractTitle');
-                $lineIds = [];
 
-                foreach ($parts as $part) {
-                    $line = $this->putPlanLine($periods, $object, $child, $title, $part['cents'], $part['date'], 'contractTitle', true);
-                    $lineIds[] = $line->id;
+                if ($wasEdit) {
+                    $contract = $this->ownedContract((int) $this->editingContractId);
+                    $lineIds = $this->syncContractParts($periods, $object, $child, $contract, $title, $parts);
+                    $removePath = $this->replacedDocumentPath($contract, $stored);
+                    $contract->update([
+                        'title' => $title,
+                        'note' => $note === '' ? null : $note,
+                        ...$this->documentColumns($contract, $stored),
+                    ]);
+                    $contract->planLines()->sync($lineIds);
+                } else {
+                    $lineIds = [];
+
+                    foreach ($parts as $part) {
+                        $line = $this->putPlanLine($periods, $object, $child, $title, $part['cents'], $part['date'], 'contractTitle', true);
+                        $lineIds[] = $line->id;
+                    }
+
+                    $contract = PropertyContract::query()->create([
+                        'property_object_id' => $object->id,
+                        'title' => $title,
+                        'note' => $note === '' ? null : $note,
+                        'document_path' => $stored['document_path'] ?? null,
+                        'document_mime' => $stored['document_mime'] ?? null,
+                        'document_name' => $stored['document_name'] ?? null,
+                    ]);
+                    $contract->planLines()->sync($lineIds);
                 }
 
-                $contract = PropertyContract::query()->create([
-                    'property_object_id' => $object->id,
-                    'title' => $title,
-                    'note' => $note === '' ? null : $note,
-                    'document_path' => $stored['document_path'] ?? null,
-                    'document_mime' => $stored['document_mime'] ?? null,
-                    'document_name' => $stored['document_name'] ?? null,
-                ]);
-                $contract->planLines()->sync($lineIds);
                 $categoryId = (int) $child->id;
             });
         } catch (\Throwable $exception) {
@@ -328,14 +359,26 @@ class PropertyObjectForm extends Component
             throw $exception;
         }
 
+        if (is_string($removePath) && $removePath !== ($stored['document_path'] ?? null)) {
+            ContractDocuments::delete($removePath);
+        }
+
         $this->rememberIfOurs($object, $categoryId);
 
         $this->showContract = false;
+        $this->resetContractForm();
+        session()->flash('status', $wasEdit ? __('Контракт сохранён.') : __('Контракт записан.'));
+    }
+
+    private function resetContractForm(): void
+    {
+        $this->editingContractId = null;
+        $this->dropContractDocument = false;
         $this->contractTitle = '';
         $this->contractNote = '';
         $this->contractParts = [['amount' => '', 'date' => '']];
         $this->contractDocument = null;
-        session()->flash('status', __('Контракт записан.'));
+        $this->resetErrorBag();
     }
 
     protected function afterDebtRecorded(Debt $debt): void
@@ -454,8 +497,17 @@ class PropertyObjectForm extends Component
         $this->redirect(route('objects.index'));
     }
 
+    /**
+     * @return list<string>
+     */
+    protected function dayFirstDateFields(): array
+    {
+        return ['expenseDate', 'contractParts', 'newDate', 'newEnd', 'newReset'];
+    }
+
     public function render()
     {
+        $this->presentDayFirstDates();
         $household = $this->household();
         $debts = Debt::query()
             ->where('household_id', $household->id)
@@ -466,6 +518,17 @@ class PropertyObjectForm extends Component
 
         $picker = $this->planPicker($household->id, $this->objectId);
         $object = $this->objectId === null ? null : $this->ownedObject();
+        $contracts = $object === null
+            ? collect()
+            : $object->contracts()->with(['planLines' => fn ($query) => $query->orderBy('expected_on')->orderBy('id')])->get();
+        $draftDocument = $this->showContract ? $this->draftDocumentPreview() : null;
+        $editingContract = $contracts->firstWhere('id', $this->editingContractId);
+        $savedContractDocument = $editingContract instanceof PropertyContract
+            && ! $this->dropContractDocument
+            && $draftDocument === null
+            && $editingContract->hasViewableDocument()
+            ? $editingContract
+            : null;
 
         return view('livewire.budget.property-object-form', [
             'debts' => $debts,
@@ -475,9 +538,12 @@ class PropertyObjectForm extends Component
             'hasExpenseCategories' => $picker['hasAny'],
             'debtAttached' => $object !== null && $object->debts()->exists(),
             'parentChoices' => $this->parentChoices($household, $object?->category_id),
-            'contracts' => $object === null
-                ? collect()
-                : $object->contracts()->with(['planLines' => fn ($query) => $query->orderBy('expected_on')->orderBy('id')])->get(),
+            'contracts' => $contracts,
+            'draftDocument' => $draftDocument,
+            'savedContractDocument' => $savedContractDocument,
+            'replacingDocument' => $editingContract instanceof PropertyContract
+                && ! $this->dropContractDocument
+                && $editingContract->hasViewableDocument(),
             'operatingAccounts' => $household->accounts()->where('role', \App\Enums\AccountRole::Operating)->orderBy('sort')->orderBy('id')->get(),
             'preview' => $this->showNew ? $this->preview() : null,
         ])->title(__('Карточка объекта — Family Money'));
@@ -1001,6 +1067,136 @@ class PropertyObjectForm extends Component
 
             $duplicate->delete();
         }
+    }
+
+    /**
+     * @param  list<array{cents: int, date: CarbonImmutable}>  $parts
+     * @return list<int>
+     */
+    private function syncContractParts(PeriodGenerator $periods, PropertyObject $object, Category $child, PropertyContract $contract, string $title, array $parts): array
+    {
+        $existing = $contract->planLines()->orderBy('expected_on')->orderBy('id')->get();
+        $used = [];
+        $lineIds = [];
+
+        foreach ($parts as $part) {
+            $match = $existing->first(function (PlanLine $line) use ($part, $title, $used): bool {
+                return ! in_array($line->id, $used, true)
+                    && $line->title === $title
+                    && (int) $line->amount_cents === $part['cents']
+                    && $line->expected_on?->toDateString() === $part['date']->toDateString();
+            });
+
+            if ($match instanceof PlanLine) {
+                $used[] = $match->id;
+                $lineIds[] = $match->id;
+
+                continue;
+            }
+
+            $spare = $existing->first(fn (PlanLine $line): bool => ! in_array($line->id, $used, true));
+
+            if ($spare instanceof PlanLine) {
+                $kept = $this->retargetPlanLine($periods, $object, $child, $spare, $title, $part['cents'], $part['date']);
+                $used[] = $spare->id;
+                $lineIds[] = $kept->id;
+
+                continue;
+            }
+
+            $created = $this->putPlanLine($periods, $object, $child, $title, $part['cents'], $part['date'], 'contractTitle', true);
+            $lineIds[] = $created->id;
+        }
+
+        foreach ($existing as $line) {
+            if (! in_array($line->id, $lineIds, true)) {
+                $this->dropUnusedContractLine($line);
+            }
+        }
+
+        return $lineIds;
+    }
+
+    private function retargetPlanLine(PeriodGenerator $periods, PropertyObject $object, Category $child, PlanLine $line, string $title, int $cents, CarbonImmutable $date): PlanLine
+    {
+        $period = $periods->periodFor($object->household, $date);
+        $twin = PlanLine::query()
+            ->where('period_id', $period->id)
+            ->where('category_id', $child->id)
+            ->where('title', $title)
+            ->where('amount_cents', $cents)
+            ->whereDate('expected_on', $date->toDateString())
+            ->whereKeyNot($line->id)
+            ->first();
+
+        if ($twin instanceof PlanLine) {
+            $this->claimPlanLine($object, $twin, 'contractTitle', true);
+            $this->dropUnusedContractLine($line);
+
+            return $twin;
+        }
+
+        $line->update([
+            'period_id' => $period->id,
+            'category_id' => $child->id,
+            'title' => $title,
+            'amount_cents' => $cents,
+            'expected_on' => $date->toDateString(),
+        ]);
+
+        return $line;
+    }
+
+    private function dropUnusedContractLine(PlanLine $line): void
+    {
+        if ($line->transactions()->exists() || $line->installment()->exists()) {
+            return;
+        }
+
+        $line->delete();
+    }
+
+    /**
+     * @param  array{document_path: string, document_mime: string, document_name: string}|null  $stored
+     */
+    private function replacedDocumentPath(PropertyContract $contract, ?array $stored): ?string
+    {
+        $previous = $contract->document_path;
+
+        if (! is_string($previous) || $previous === '') {
+            return null;
+        }
+
+        if ($stored !== null) {
+            return $previous === $stored['document_path'] ? null : $previous;
+        }
+
+        return $this->dropContractDocument ? $previous : null;
+    }
+
+    /**
+     * @param  array{document_path: string, document_mime: string, document_name: string}|null  $stored
+     * @return array{document_path: ?string, document_mime: ?string, document_name: ?string}
+     */
+    private function documentColumns(PropertyContract $contract, ?array $stored): array
+    {
+        if ($stored !== null) {
+            return $stored;
+        }
+
+        if ($this->dropContractDocument) {
+            return [
+                'document_path' => null,
+                'document_mime' => null,
+                'document_name' => null,
+            ];
+        }
+
+        return [
+            'document_path' => $contract->document_path,
+            'document_mime' => $contract->document_mime,
+            'document_name' => $contract->document_name,
+        ];
     }
 
     private function ownedObject(): PropertyObject

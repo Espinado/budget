@@ -12,7 +12,7 @@
         </label>
         <label class="block">
             <span class="text-base text-stone-500">{{ __('Дата') }}</span>
-            <input type="date" wire:model="operationDate" min="{{ $factFrom }}" max="{{ $factTo }}" class="mt-1 w-full min-w-0 rounded-xl border border-stone-200 px-2 py-2 text-base outline-none focus:border-sky-500 sm:w-auto {{ $errors->has('operationDate') ? 'field-invalid' : '' }}">
+            <x-date-input wire:model="operationDate" class="mt-1 w-full min-w-0 rounded-xl border border-stone-200 px-2 py-2 text-base outline-none focus:border-sky-500 sm:w-auto {{ $errors->has('operationDate') ? 'field-invalid' : '' }}" />
         </label>
         <label class="block min-w-36">
             <span class="text-base text-stone-500">{{ __('Счёт') }}</span>

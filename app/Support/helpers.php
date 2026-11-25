@@ -55,9 +55,9 @@ function ru_days(int $count): string
 
 function app_date(mixed $date, bool $withYear = false): string
 {
-    // dd/mm/yyyy for every locale. Year is always included so list rows share
+    // dd.mm.YYYY for every locale. Year is always included so list rows share
     // one width; $withYear is kept for existing callers.
-    return \Illuminate\Support\Carbon::parse($date)->format('d/m/Y');
+    return \App\Support\AppDate::format($date);
 }
 
 /** @deprecated Use app_date() */

@@ -1277,6 +1277,154 @@ class PropertyObjectTest extends TestCase
         $this->assertSame(0, DB::table('property_object_plan_lines')->where('plan_line_id', $line->id)->count());
     }
 
+    public function test_contract_amounts_accept_either_separator_and_cancel_discards_the_draft(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-25 12:00:00', 'Europe/Riga'));
+        [$user] = $this->family('Наша');
+
+        Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class)
+            ->set('name', 'Квартира')
+            ->set('kind', 'apartment')
+            ->set('label', 'Бривибас 1')
+            ->call('save')
+            ->assertRedirect();
+
+        $object = PropertyObject::query()->firstOrFail();
+        $card = Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $object])
+            ->call('openContract')
+            ->assertSee('Сохранить контракт')
+            ->assertSee('Отменить')
+            ->assertSee('дд.мм.гггг')
+            ->assertDontSee('type="date"', false)
+            ->set('contractTitle', 'Черновик')
+            ->set('contractNote', 'не писать')
+            ->set('contractParts', [['amount' => '32.09', 'date' => '06.11.2027']])
+            ->call('cancelContract')
+            ->assertSet('showContract', false)
+            ->assertSet('contractTitle', '')
+            ->assertSet('contractParts', [['amount' => '', 'date' => '']]);
+
+        $this->assertSame(0, PropertyContract::query()->count());
+        $this->assertNull(PlanLine::query()->where('title', 'Черновик')->first());
+
+        $card
+            ->call('openExpense')
+            ->set('expenseName', 'Корм')
+            ->set('expenseAmount', '32,09')
+            ->set('expenseDate', '06.11.2026')
+            ->call('saveExpense')
+            ->assertHasNoErrors();
+
+        $feed = PlanLine::query()->where('title', 'Корм')->firstOrFail();
+        $this->assertSame(3_209, (int) $feed->amount_cents);
+        $this->assertSame('2026-11-06', $feed->expected_on->toDateString());
+
+        $card
+            ->call('openContract')
+            ->set('contractParts.0.amount', '32.09')
+            ->assertSet('contractParts.0.amount', '32,09')
+            ->set('contractTitle', 'ERGO')
+            ->set('contractParts', [['amount' => '32.09', 'date' => '06.11.2027']])
+            ->call('saveContract')
+            ->assertHasNoErrors()
+            ->assertSee('06.11.2027');
+
+        $ergo = PlanLine::query()->where('title', 'ERGO')->firstOrFail();
+        $this->assertSame(3_209, (int) $ergo->amount_cents);
+        $this->assertSame('2027-11-06', $ergo->expected_on->toDateString());
+        $this->assertSame(1, PropertyContract::query()->count());
+    }
+
+    public function test_editing_a_contract_updates_that_contract_and_keeps_an_unchanged_part(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-25 12:00:00', 'Europe/Riga'));
+        [$user] = $this->family('Наша');
+
+        Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class)
+            ->set('name', 'Квартира')
+            ->set('kind', 'apartment')
+            ->set('label', 'Бривибас 1')
+            ->call('save')
+            ->assertRedirect();
+
+        $object = PropertyObject::query()->firstOrFail();
+        $card = Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $object])
+            ->call('openContract')
+            ->set('contractTitle', 'Госпошлина')
+            ->set('contractNote', 'первый')
+            ->set('contractParts', [
+                ['amount' => '10,00', 'date' => '20.11.2026'],
+                ['amount' => '32,06', 'date' => '15.06.2027'],
+            ])
+            ->call('saveContract')
+            ->assertHasNoErrors()
+            ->assertSee('Изменить контракт')
+            ->assertDontSee('Заменить документ')
+            ->assertDontSee('Убрать документ');
+
+        $contract = PropertyContract::query()->firstOrFail();
+        $lines = $contract->planLines()->orderBy('expected_on')->orderBy('id')->get();
+        $this->assertCount(2, $lines);
+        $novemberId = (int) $lines[0]->id;
+        $juneId = (int) $lines[1]->id;
+
+        $card->call('editContract', $contract->id)
+            ->assertSet('editingContractId', $contract->id)
+            ->assertSet('contractTitle', 'Госпошлина')
+            ->assertSet('contractNote', 'первый')
+            ->assertSet('contractParts.0.amount', '10,00')
+            ->assertSet('contractParts.0.date', '20.11.2026')
+            ->assertSet('contractParts.1.amount', '32,06')
+            ->assertSet('contractParts.1.date', '15.06.2027')
+            ->assertSee('Изменить контракт')
+            ->assertDontSee('type="date"', false)
+            ->set('contractNote', 'черновик правки')
+            ->set('contractParts.0.amount', '99.00')
+            ->call('cancelContract')
+            ->assertSet('showContract', false)
+            ->assertSet('editingContractId', null);
+
+        $this->assertSame(1, PropertyContract::query()->count());
+        $this->assertSame('первый', $contract->fresh()->note);
+        $this->assertSame(1_000, (int) $lines[0]->fresh()->amount_cents);
+        $this->assertSame(3_206, (int) $lines[1]->fresh()->amount_cents);
+
+        $card->call('editContract', $contract->id)
+            ->set('contractNote', 'второй')
+            ->set('contractParts', [
+                ['amount' => '11.50', 'date' => '20.11.2026'],
+                ['amount' => '32,06', 'date' => '15.06.2027'],
+                ['amount' => '5,00', 'date' => '01.12.2026'],
+            ])
+            ->call('saveContract')
+            ->assertHasNoErrors()
+            ->assertSee('второй')
+            ->assertSee('01.12.2026')
+            ->assertSee('15.06.2027');
+
+        $this->assertSame(1, PropertyContract::query()->count());
+        $this->assertSame($contract->id, (int) PropertyContract::query()->value('id'));
+        $this->assertSame('второй', $contract->fresh()->note);
+        $this->assertSame('Госпошлина', $contract->fresh()->title);
+        $this->assertSame($novemberId, (int) PlanLine::query()->where('amount_cents', 1_150)->value('id'));
+        $this->assertSame('2026-11-20', PlanLine::query()->findOrFail($novemberId)->expected_on->toDateString());
+        $june = PlanLine::query()->findOrFail($juneId);
+        $this->assertSame(3_206, (int) $june->amount_cents);
+        $this->assertSame('2027-06-15', $june->expected_on->toDateString());
+        $this->assertSame('Госпошлина', $june->title);
+        $this->assertSame(3, PlanLine::query()->where('title', 'Госпошлина')->count());
+        $this->assertSame(3, $contract->fresh()->planLines()->count());
+        $addedId = (int) PlanLine::query()->where('amount_cents', 500)->value('id');
+        $this->assertEqualsCanonicalizing(
+            [$novemberId, $juneId, $addedId],
+            $contract->fresh()->planLines()->pluck('plan_lines.id')->map(fn ($id): int => (int) $id)->all(),
+        );
+    }
+
     /**
      * @return array{0: User, 1: Household}
      */

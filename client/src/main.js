@@ -1,7 +1,7 @@
 import './styles.css'
 import { accountBalance, descendantIds, totals } from './budget.js'
 import { addRecord, ensureSeed, loadAll, openDatabase } from './db.js'
-import { formatRuDate, money, monthBounds, monthKey, monthSpan, monthTitle, monthsBetween, parseAmount, shiftMonth, todayKey, weekBounds } from './money.js'
+import { formatDay, formatRuDate, money, monthBounds, monthKey, monthSpan, monthTitle, monthsBetween, parseAmount, parseDay, shiftMonth, todayKey, weekBounds } from './money.js'
 
 const app = document.querySelector('#app')
 const database = await openDatabase()
@@ -345,7 +345,7 @@ function planForm(data) {
       <label>Категория<select name="category" required><option value="">Выберите</option>${options}</select></label>
       <label>Примечание, можно пусто<input name="title" maxlength="80" placeholder="Например, страховка машины"></label>
       <label>Сумма, €<input name="amount" inputmode="decimal" placeholder="25,00" required></label>
-      <label>Дата платежа, можно пусто<input name="date" type="date"></label>
+      <label>Дата платежа, можно пусто<input name="date" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="дд.мм.гггг"></label>
       ${errorBox()}
       <div class="form-actions">
         <button class="text-button" type="button" data-action="cancel">Отмена</button>
@@ -370,7 +370,7 @@ function quickForm(data) {
     <form class="sheet-card" data-form="quick">
       <h2>${type === 'income' ? 'Новый приход' : 'Новый расход'}</h2>
       <label>Сумма, €<input name="amount" inputmode="decimal" placeholder="10,00" required></label>
-      <label>Дата<input name="date" type="date" value="${defaultDate()}" required></label>
+      <label>Дата<input name="date" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="дд.мм.гггг" value="${escapeHtml(formatDay(defaultDate()))}" required></label>
       <label>Категория<select name="category" required><option value="">Выберите категорию</option>${options}</select></label>
       ${lineOptions}
       <label>Счёт${accountSelect(data)}</label>
@@ -389,7 +389,7 @@ function recordForm(data) {
     <form data-form="record">
       <p class="muted">Каждую операцию записываем отдельно, не всю сумму сразу.</p>
       <label>Сумма операции, €<input name="amount" inputmode="decimal" placeholder="4,50" required></label>
-      <label>Дата<input name="date" type="date" value="${defaultDate()}" required></label>
+      <label>Дата<input name="date" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="дд.мм.гггг" value="${escapeHtml(formatDay(defaultDate()))}" required></label>
       <label>Счёт${accountSelect(data)}</label>
       <label>Заметка<input name="note" maxlength="200" placeholder="Например, поездка"></label>
       ${errorBox()}
@@ -408,9 +408,7 @@ function accountSelect(data) {
 }
 
 function shortDate(value) {
-  const [year, month, day] = value.split('-').map(Number)
-
-  return new Date(year, month - 1, day).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+  return formatDay(value)
 }
 
 function categoryForm(data, type) {
@@ -453,8 +451,8 @@ function statisticsPage(data) {
         </div>
         ${state.statsRange === 'custom' ? `
           <div class="dates">
-            <label>С<input type="date" name="statsFrom" value="${escapeHtml(state.statsFrom)}"></label>
-            <label>По<input type="date" name="statsTo" value="${escapeHtml(state.statsTo)}"></label>
+            <label>С<input type="text" name="statsFrom" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="дд.мм.гггг" value="${escapeHtml(formatDay(state.statsFrom))}"></label>
+            <label>По<input type="text" name="statsTo" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="дд.мм.гггг" value="${escapeHtml(formatDay(state.statsTo))}"></label>
           </div>
         ` : ''}
         ${invalid ? '<p class="error">Сначала должна идти более ранняя дата.</p>' : `<p class="hint">${escapeHtml(formatRuDate(from))} — ${escapeHtml(formatRuDate(to))} · операций ${count}</p>`}
@@ -635,10 +633,21 @@ async function onClick(event) {
 
 async function onChange(event) {
   const input = event.target
-  if (input.name === 'statsFrom') {
-    state.statsFrom = input.value
-  } else if (input.name === 'statsTo') {
-    state.statsTo = input.value
+  if (input.name === 'statsFrom' || input.name === 'statsTo') {
+    const iso = parseDay(input.value)
+
+    if (iso === null) {
+      state.error = 'Укажите дату.'
+      await draw()
+      return
+    }
+
+    state.error = ''
+    if (input.name === 'statsFrom') {
+      state.statsFrom = iso
+    } else {
+      state.statsTo = iso
+    }
   } else if (input.name === 'category' && state.form?.kind === 'quick') {
     state.form = { ...state.form, categoryId: Number(input.value) }
   } else {
@@ -660,7 +669,13 @@ async function onSubmit(event) {
   if (form.dataset.form === 'plan') {
     const category = data.categories.find((item) => item.id === Number(form.category.value) && item.type === state.form.type)
     const amount = parseAmount(form.amount.value)
-    const date = form.date.value
+    const date = parseDay(form.date.value)
+
+    if (form.date.value.trim() !== '' && date === null) {
+      state.error = 'Укажите дату.'
+      await draw()
+      return
+    }
     if (!category) {
       state.error = 'Выберите категорию.'
       await draw()
@@ -734,7 +749,9 @@ async function saveTransaction(form, data) {
     state.error = 'Выберите счёт.'
     return false
   }
-  if (!form.date.value) {
+  const occurredOn = parseDay(form.date.value)
+
+  if (occurredOn === null) {
     state.error = 'Укажите дату.'
     return false
   }
@@ -749,7 +766,7 @@ async function saveTransaction(form, data) {
       state.error = 'Строка плана не найдена.'
       return false
     }
-    if (!form.date.value.startsWith(state.month)) {
+    if (!occurredOn.startsWith(state.month)) {
       state.error = 'Дата должна быть в открытом месяце.'
       return false
     }
@@ -759,7 +776,7 @@ async function saveTransaction(form, data) {
       state.error = 'Выберите категорию.'
       return false
     }
-    const month = form.date.value.slice(0, 7)
+    const month = occurredOn.slice(0, 7)
     const lines = data.planLines.filter((line) => line.categoryId === category.id && line.month === month)
     if (lines.length > 1) {
       const line = lines.find((item) => item.id === Number(form.line.value))
@@ -780,7 +797,7 @@ async function saveTransaction(form, data) {
     accountId: account.id,
     type: category.type,
     amountCents: amount,
-    occurredOn: form.date.value,
+    occurredOn,
     note: form.note.value.trim(),
   })
 

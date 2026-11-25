@@ -49,7 +49,12 @@ export function monthSpan(key) {
   const [year, month] = key.split('-').map(Number)
   const start = new Date(year, month - 1, 1)
   const end = new Date(year, month, 0)
-  const day = (date) => date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+  const day = (date) => {
+    const number = String(date.getDate()).padStart(2, '0')
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+
+    return `${number}.${month}.${date.getFullYear()}`
+  }
   const today = new Date()
   const current = todayKey()
   let note = 'Период уже закончился'
@@ -122,11 +127,41 @@ export function monthsBetween(from, to) {
   return months
 }
 
-export function formatRuDate(value) {
-  const [year, month, day] = value.split('-').map(Number)
-  const text = new Date(year, month - 1, day).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+export function formatDay(value) {
+  const match = String(value ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
 
-  return text.replace(/\s*г\.\s*$/, '')
+  return match ? `${match[3]}.${match[2]}.${match[1]}` : ''
+}
+
+export function parseDay(value) {
+  const text = String(value ?? '').trim()
+  const dotted = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
+
+  if (dotted) {
+    return realIso(Number(dotted[3]), Number(dotted[2]), Number(dotted[1]), dotted[3], dotted[2], dotted[1])
+  }
+
+  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+
+  if (!iso) {
+    return null
+  }
+
+  return realIso(Number(iso[1]), Number(iso[2]), Number(iso[3]), iso[1], iso[2], iso[3])
+}
+
+function realIso(year, month, day, yearText, monthText, dayText) {
+  const date = new Date(year, month - 1, day)
+
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null
+  }
+
+  return `${yearText}-${monthText}-${dayText}`
+}
+
+export function formatRuDate(value) {
+  return formatDay(value)
 }
 
 export function todayKey() {

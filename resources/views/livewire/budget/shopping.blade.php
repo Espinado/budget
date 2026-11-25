@@ -220,7 +220,7 @@
                             </label>
                             <label class="block min-w-0">
                                 <span class="text-base text-stone-600 sm:text-lg">{{ __('Цена') }}</span>
-                                <input type="text" inputmode="decimal" wire:model="itemPriceAmount" class="mt-1 w-full min-w-0 rounded-2xl border border-stone-200 px-3 py-2.5 text-lg {{ $errors->has('itemPriceAmount') ? 'field-invalid' : '' }}" placeholder="{{ __('необязательно') }}">
+                                <input type="text" data-money inputmode="decimal" wire:model="itemPriceAmount" class="mt-1 w-full min-w-0 rounded-2xl border border-stone-200 px-3 py-2.5 text-lg {{ $errors->has('itemPriceAmount') ? 'field-invalid' : '' }}" placeholder="{{ __('необязательно') }}">
                                 @error('itemPriceAmount') <p class="mt-1 text-base text-rose-700">{{ $message }}</p> @enderror
                             </label>
                         </div>

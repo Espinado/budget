@@ -10,6 +10,7 @@ use App\Models\Debt;
 use App\Services\Budget\DebtBook;
 use App\Services\Budget\FamilyActivity;
 use App\Services\Budget\PeriodGenerator;
+use App\Support\AppDate;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
@@ -387,15 +388,7 @@ trait RecordsDebt
 
     private function parseDate(string $raw): ?CarbonImmutable
     {
-        $raw = trim($raw);
-
-        if ($raw === '' || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
-            return null;
-        }
-
-        $date = CarbonImmutable::createFromFormat('Y-m-d', $raw, 'Europe/Riga');
-
-        return $date === false ? null : $date->startOfDay();
+        return AppDate::parse($raw);
     }
 
     private function paymentCount(?CarbonImmutable $first, ?CarbonImmutable $end): ?int

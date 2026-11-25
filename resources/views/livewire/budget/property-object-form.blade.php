@@ -147,12 +147,12 @@
                 @error('expenseName') <p class="text-base text-rose-700">{{ $message }}</p> @enderror
                 <label class="block">
                     <span class="text-base text-stone-600">{{ __('Сумма') }}</span>
-                    <input wire:model="expenseAmount" inputmode="decimal" placeholder="0,00" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide">
+                    <input wire:model="expenseAmount" data-money inputmode="decimal" placeholder="0,00" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide">
                 </label>
                 @error('expenseAmount') <p class="text-base text-rose-700">{{ $message }}</p> @enderror
                 <label class="block">
                     <span class="text-base text-stone-600">{{ __('Дата') }}</span>
-                    <input wire:model="expenseDate" type="date" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide">
+                    <x-date-input wire:model="expenseDate" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide" />
                 </label>
                 @error('expenseDate') <p class="text-base text-rose-700">{{ $message }}</p> @enderror
                 <button type="submit" class="w-full rounded-2xl bg-tide px-4 py-3 text-base font-medium text-white">{{ __('Записать расход') }}</button>
@@ -161,7 +161,7 @@
 
         @if ($showContract)
             <form wire:submit="saveContract" class="grid grid-cols-1 gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-stone-900/5 sm:p-5">
-                <h2 class="text-lg font-medium text-ink">{{ __('Новый контракт') }}</h2>
+                <h2 class="text-lg font-medium text-ink">{{ $editingContractId ? __('Изменить контракт') : __('Новый контракт') }}</h2>
                 <label class="block">
                     <span class="text-base text-stone-600">{{ __('Название') }}</span>
                     <input wire:model="contractTitle" type="text" maxlength="80" placeholder="{{ __('ERGO или Госпошлина') }}" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide">
@@ -176,12 +176,12 @@
                     <div class="grid grid-cols-1 gap-2">
                         <label class="block">
                             <span class="text-base text-stone-600">{{ __('Сумма') }}</span>
-                            <input wire:model="contractParts.{{ $index }}.amount" inputmode="decimal" placeholder="0,00" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide">
+                            <input wire:model="contractParts.{{ $index }}.amount" data-money inputmode="decimal" placeholder="0,00" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide">
                         </label>
                         @error('contractParts.'.$index.'.amount') <p class="text-base text-rose-700">{{ $message }}</p> @enderror
                         <label class="block">
                             <span class="text-base text-stone-600">{{ __('Дата') }}</span>
-                            <input wire:model="contractParts.{{ $index }}.date" type="date" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide">
+                            <x-date-input wire:model="contractParts.{{ $index }}.date" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide" />
                         </label>
                         @error('contractParts.'.$index.'.date') <p class="text-base text-rose-700">{{ $message }}</p> @enderror
                     </div>
@@ -191,13 +191,24 @@
                 <div>
                     <span class="text-base text-stone-600">{{ __('Документ') }}</span>
                     <span class="mt-1 block text-base text-stone-500">{{ __('Фотография или PDF. Новый файл заменяет предыдущий.') }}</span>
-                    @if ($draft = $this->draftDocumentPreview())
+                    @if ($savedContractDocument)
                         <div class="mt-2">
                             @include('livewire.budget.partials.contract-document', [
-                                'documentUrl' => $draft['url'],
-                                'downloadUrl' => $draft['url'],
-                                'documentMime' => $draft['mime'],
-                                'documentTitle' => $draft['title'],
+                                'documentUrl' => route('objects.contracts.document', $savedContractDocument),
+                                'downloadUrl' => route('objects.contracts.document', ['contract' => $savedContractDocument, 'download' => 1]),
+                                'documentMime' => $savedContractDocument->document_mime,
+                                'documentTitle' => $savedContractDocument->document_name ?: $savedContractDocument->title,
+                            ])
+                        </div>
+                        <button type="button" wire:click="clearContractDocument" class="mt-2 text-base font-medium text-rose-700">{{ __('Убрать документ') }}</button>
+                    @endif
+                    @if ($draftDocument)
+                        <div class="mt-2">
+                            @include('livewire.budget.partials.contract-document', [
+                                'documentUrl' => $draftDocument['url'],
+                                'downloadUrl' => $draftDocument['url'],
+                                'documentMime' => $draftDocument['mime'],
+                                'documentTitle' => $draftDocument['title'],
                             ])
                         </div>
                         <button type="button" wire:click="clearContractDocument" class="mt-2 text-base font-medium text-rose-700">{{ __('Убрать документ') }}</button>
@@ -205,7 +216,7 @@
                     @error('contractDocument') <p class="mt-2 text-base text-rose-700">{{ $message }}</p> @enderror
                     <div class="mt-2 grid grid-cols-1 gap-2">
                         <label class="relative flex min-h-14 w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-stone-300 bg-paper px-4 py-3 text-base font-medium text-ink">
-                            {{ __('Загрузить документ') }}
+                            {{ $replacingDocument ? __('Заменить документ') : __('Загрузить документ') }}
                             <input type="file" wire:model="contractDocument" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:100px">
                         </label>
                         <label class="relative flex min-h-14 w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl px-4 py-3 text-base font-medium text-white" style="background:#0f6e6b">
@@ -214,7 +225,8 @@
                         </label>
                     </div>
                 </div>
-                <button type="submit" class="w-full rounded-2xl bg-tide px-4 py-3 text-base font-medium text-white">{{ __('Записать контракт') }}</button>
+                <button type="submit" class="w-full rounded-2xl bg-tide px-4 py-3 text-base font-medium text-white">{{ __('Сохранить контракт') }}</button>
+                <button type="button" wire:click="cancelContract" class="w-full rounded-2xl border border-stone-300 bg-paper px-4 py-3 text-base font-medium text-ink">{{ __('Отменить') }}</button>
             </form>
         @endif
 
@@ -247,16 +259,7 @@
                             @endforeach
                         </div>
                     </div>
-                    <div class="mt-3 flex flex-wrap items-center gap-3">
-                        <label class="relative inline-flex min-h-11 cursor-pointer items-center overflow-hidden text-base font-medium text-tide">
-                            {{ $contract->hasViewableDocument() ? __('Заменить документ') : __('Загрузить документ') }}
-                            <input type="file" wire:model="replacementFiles.{{ $contract->id }}" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:100px">
-                        </label>
-                        @if ($contract->hasViewableDocument())
-                            <button type="button" wire:click="removeContractDocument({{ $contract->id }})" wire:confirm="{{ __('Убрать документ? Файл будет удалён.') }}" class="text-base font-medium text-rose-700">{{ __('Убрать документ') }}</button>
-                        @endif
-                    </div>
-                    @error('replacementFiles.'.$contract->id) <p class="mt-2 text-base text-rose-700">{{ $message }}</p> @enderror
+                    <button type="button" wire:click="editContract({{ $contract->id }})" class="mt-3 min-h-11 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base font-medium text-ink">{{ __('Изменить контракт') }}</button>
                 </article>
             @empty
                 <p class="mt-2 text-base text-stone-600">{{ __('Контрактов пока нет.') }}</p>

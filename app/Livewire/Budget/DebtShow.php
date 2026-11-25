@@ -7,6 +7,7 @@ use App\Models\DebtInstallment;
 use App\Models\Household;
 use App\Services\Budget\DebtBook;
 use App\Services\Budget\FamilyActivity;
+use App\Livewire\Concerns\NormalizesMoneyInput;
 use App\Support\DailyInterest;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -16,6 +17,8 @@ use Livewire\Component;
 
 class DebtShow extends Component
 {
+    use NormalizesMoneyInput;
+
     public int $debtId;
 
     public string $rateFixed = '';

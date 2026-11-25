@@ -851,7 +851,7 @@ class BudgetPeriodTest extends TestCase
             ->assertSet('operationAmount', '')
             ->assertSeeHtml('placeholder="7,99"')
             ->call('toggleDeals', $line->id)
-            ->assertSee('11/11/2026')
+            ->assertSee('11.11.2026')
             ->assertDontSee('11 ноября');
     }
 
@@ -1566,7 +1566,7 @@ class BudgetPeriodTest extends TestCase
         $cigarettes = $household->categories()->where('name', 'Сигареты')->firstOrFail();
         $income = $household->categories()->where('name', 'Доход')->firstOrFail();
         $cash = $household->accounts()->where('name', 'Наличные')->firstOrFail();
-        $today = CarbonImmutable::now($household->timezone)->toDateString();
+        $today = CarbonImmutable::now($household->timezone)->format('d.m.Y');
 
         Livewire::actingAs($user)
             ->test(Dashboard::class)

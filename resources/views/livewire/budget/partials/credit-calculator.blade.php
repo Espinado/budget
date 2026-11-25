@@ -4,7 +4,7 @@
     <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label class="block">
             <span class="text-base text-stone-600">{{ __('Сумма долга') }}</span>
-            <input data-calc="principal" inputmode="decimal" autocomplete="off" placeholder="0,00" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide">
+            <input data-calc="principal" data-money inputmode="decimal" autocomplete="off" placeholder="0,00" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide">
         </label>
         <label class="block">
             <span class="text-base text-stone-600">{{ __('Срок, месяцев') }}</span>

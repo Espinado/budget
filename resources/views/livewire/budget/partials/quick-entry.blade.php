@@ -14,7 +14,7 @@
         </label>
         <label class="block">
             <span class="text-base text-stone-500">{{ __('Дата') }}</span>
-            <input type="date" wire:model.live="quickDate" min="{{ $factFrom }}" max="{{ $factTo }}" class="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-base outline-none focus:border-sky-500 {{ $errors->has('quickDate') ? 'field-invalid' : '' }}">
+            <x-date-input wire:model.live="quickDate" class="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-base outline-none focus:border-sky-500 {{ $errors->has('quickDate') ? 'field-invalid' : '' }}" />
             @error('quickDate') <p class="mt-1 text-base text-rose-700">{{ $message }}</p> @enderror
         </label>
         <div class="block min-w-0 sm:col-span-2">
