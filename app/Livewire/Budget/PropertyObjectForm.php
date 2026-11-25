@@ -30,7 +30,9 @@ use Livewire\WithFileUploads;
 
 class PropertyObjectForm extends Component
 {
-    use NormalizesMoneyInput;
+    use NormalizesMoneyInput {
+        updated as normalizeMoneyUpdated;
+    }
     use PresentsDayFirstDates;
     use RecordsDebt;
     use WithFileUploads;
@@ -207,6 +209,47 @@ class PropertyObjectForm extends Component
     public function addContractPart(): void
     {
         $this->contractParts[] = ['amount' => '', 'date' => ''];
+    }
+
+    public function updated(string $name, mixed $value): void
+    {
+        $this->normalizeMoneyUpdated($name, $value);
+        $this->followOpenContractDate($name, $value);
+    }
+
+    private function followOpenContractDate(string $name, mixed $value): void
+    {
+        $index = $this->contractDatePicker;
+
+        if ($index === null) {
+            return;
+        }
+
+        $typed = null;
+
+        if (preg_match('/^contractParts\.(\d+)\.date$/', $name, $match) === 1) {
+            if ((int) $match[1] !== $index) {
+                return;
+            }
+
+            $typed = $value;
+        } elseif ($name === 'contractParts' && is_array($value)) {
+            $part = $value[$index] ?? null;
+            $typed = is_array($part) ? ($part['date'] ?? null) : null;
+        }
+
+        if (! is_string($typed)) {
+            return;
+        }
+
+        $parsed = AppDate::parse($typed);
+
+        if ($parsed === null) {
+            return;
+        }
+
+        $this->contractPickerYear = (int) $parsed->year;
+        $this->contractPickerMonth = (int) $parsed->month;
     }
 
     public function openContractDate(int $index): void

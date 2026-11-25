@@ -174,10 +174,15 @@
                 </label>
                 @once
                     <style>
-                        .contract-day-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.25rem; }
-                        .contract-day-grid button { min-height: 2.75rem; border-radius: 0.75rem; }
+                        .contract-day-panel { margin-top: 0.375rem; padding: 0.375rem 0.5rem 0.5rem; border-radius: 0.75rem; border: 1px solid rgba(28, 25, 23, 0.12); background: #f3efe6; }
+                        .contract-day-nav { display: flex; align-items: center; justify-content: space-between; gap: 0.25rem; }
+                        .contract-day-nav button { min-width: 2.25rem; min-height: 2.25rem; border-radius: 0.5rem; border: 1px solid rgba(28, 25, 23, 0.16); background: #fff; color: #1c1917; line-height: 1; }
+                        .contract-day-title { color: #1c1917; font-size: 0.95rem; font-weight: 600; line-height: 1.2; }
+                        .contract-day-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; margin-top: 0.25rem; }
+                        .contract-day-grid span { padding: 0; text-align: center; color: #1c1917; font-size: 0.75rem; line-height: 1.2; }
+                        .contract-day-grid button { min-height: 2.25rem; padding: 0; border-radius: 0.45rem; color: #1c1917; font-size: 0.95rem; line-height: 1; }
                         .contract-day-grid button.is-selected { background: #0f6e6b; color: #fff; }
-                        .contract-day-grid button.is-today:not(.is-selected) { box-shadow: inset 0 0 0 1px #0f6e6b; }
+                        .contract-day-grid button.is-today:not(.is-selected) { box-shadow: inset 0 0 0 1.5px #0f6e6b; }
                     </style>
                 @endonce
                 @foreach ($contractParts as $index => $part)

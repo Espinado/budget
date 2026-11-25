@@ -1459,6 +1459,42 @@ class PropertyObjectTest extends TestCase
         $card->call('addContractPart');
         $this->assertSame(2, substr_count($card->html(), 'data-day-picker'));
         $this->assertSame(2, substr_count($card->html(), 'data-day-open'));
+        $this->assertStringContainsString('wire:model.live.debounce.200ms="contractParts.0.date"', $card->html());
+        $this->assertStringContainsString('wire:model.live.debounce.200ms="contractParts.1.date"', $card->html());
+        $this->assertStringContainsString('min-height: 2.25rem', $card->html());
+        $this->assertStringContainsString('gap: 2px', $card->html());
+
+        $card->call('openContractDate', 0)
+            ->assertSet('contractPickerMonth', 11)
+            ->assertSet('contractPickerYear', 2026)
+            ->set('contractParts.0.date', '06.11.20')
+            ->assertSet('contractPickerMonth', 11)
+            ->assertSet('contractPickerYear', 2026)
+            ->set('contractParts.0.date', '32.11.2027')
+            ->assertSet('contractPickerMonth', 11)
+            ->assertSet('contractPickerYear', 2026)
+            ->set('contractParts.0.date', '06.11.2027')
+            ->assertSet('contractPickerMonth', 11)
+            ->assertSet('contractPickerYear', 2027)
+            ->assertSee('Ноябрь 2027')
+            ->assertSee('data-selected="6"', false)
+            ->set('contractParts.1.date', '15.06.2028')
+            ->assertSet('contractDatePicker', 0)
+            ->assertSet('contractPickerMonth', 11)
+            ->assertSet('contractPickerYear', 2027)
+            ->assertSet('contractParts.0.amount', '')
+            ->assertSet('contractParts.1.amount', '')
+            ->call('openContractDate', 1)
+            ->assertSet('contractDatePicker', 1)
+            ->assertSet('contractPickerMonth', 6)
+            ->assertSet('contractPickerYear', 2028)
+            ->assertSee('Июнь 2028')
+            ->assertSee('data-selected="15"', false)
+            ->call('openContractDate', 1)
+            ->set('contractParts', [
+                ['amount' => '', 'date' => ''],
+                ['amount' => '', 'date' => ''],
+            ]);
 
         $card->call('pickContractDate', 6)
             ->assertSet('contractParts.0.date', '')
@@ -1493,10 +1529,26 @@ class PropertyObjectTest extends TestCase
         $this->assertStringContainsString('id="contract-part-date-0"', $edit);
         $this->assertStringContainsString('id="contract-part-date-1"', $edit);
 
-        $card->call('openContractDate', 1)
+        $card->call('openContractDate', 0)
+            ->assertSet('contractPickerMonth', 11)
+            ->assertSet('contractPickerYear', 2026)
+            ->set('contractParts.0.date', '06.11.20')
+            ->assertSet('contractPickerYear', 2026)
+            ->set('contractParts.0.date', '06.11.2027')
+            ->assertSet('contractPickerMonth', 11)
+            ->assertSet('contractPickerYear', 2027)
+            ->assertSee('Ноябрь 2027')
+            ->assertSee('data-selected="6"', false)
+            ->assertSet('contractParts.1.date', '15.06.2027')
+            ->set('contractParts.0.date', '20.11.2026')
+            ->assertSet('contractPickerYear', 2026)
+            ->assertSee('data-selected="20"', false)
+            ->call('openContractDate', 0)
+            ->call('openContractDate', 1)
             ->assertSet('contractPickerMonth', 6)
             ->assertSet('contractPickerYear', 2027)
             ->assertSee('Июнь 2027')
+            ->assertSee('data-selected="15"', false)
             ->call('pickContractDate', 16)
             ->assertSet('contractParts.1.date', '16.06.2027')
             ->assertSet('contractParts.0.date', '20.11.2026')
