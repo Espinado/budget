@@ -1425,6 +1425,85 @@ class PropertyObjectTest extends TestCase
         );
     }
 
+    public function test_each_contract_part_date_opens_a_day_picker(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-25 12:00:00', 'Europe/Riga'));
+        [$user] = $this->family('Наша');
+
+        Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class)
+            ->set('name', 'Квартира')
+            ->set('kind', 'apartment')
+            ->set('label', 'Бривибас 1')
+            ->call('save')
+            ->assertRedirect();
+
+        $object = PropertyObject::query()->firstOrFail();
+        $card = Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $object])
+            ->call('openContract')
+            ->assertSee('Сохранить контракт')
+            ->assertSee('Отменить')
+            ->assertSee('дд.мм.гггг')
+            ->assertDontSee('type="date"', false);
+
+        $create = $card->html();
+        $this->assertSame(1, substr_count($create, 'data-day-picker'));
+        $this->assertSame(1, substr_count($create, 'data-day-open'));
+        $this->assertStringContainsString('aria-label="Календарь"', $create);
+        $this->assertStringContainsString('for="contract-part-date-0"', $create);
+        $this->assertStringContainsString('id="contract-part-date-0"', $create);
+        $this->assertStringContainsString('type="text"', $create);
+        $this->assertStringContainsString('placeholder="дд.мм.гггг"', $create);
+
+        $card->call('addContractPart');
+        $this->assertSame(2, substr_count($card->html(), 'data-day-picker'));
+        $this->assertSame(2, substr_count($card->html(), 'data-day-open'));
+
+        $card->call('pickContractDate', 6)
+            ->assertSet('contractParts.0.date', '')
+            ->assertSet('contractParts.1.date', '')
+            ->call('openContractDate', 1)
+            ->assertSee('Ноябрь 2026')
+            ->call('shiftContractDateMonth', 12)
+            ->assertSee('Ноябрь 2027')
+            ->call('pickContractDate', 6)
+            ->assertSet('contractParts.1.date', '06.11.2027')
+            ->assertSet('contractParts.0.date', '')
+            ->set('contractParts.0.date', '15.06.2027')
+            ->assertSet('contractParts.0.date', '15.06.2027')
+            ->set('contractTitle', 'ERGO')
+            ->set('contractParts', [
+                ['amount' => '10,00', 'date' => '20.11.2026'],
+                ['amount' => '32,06', 'date' => '15.06.2027'],
+            ])
+            ->call('saveContract')
+            ->assertHasNoErrors();
+
+        $contract = PropertyContract::query()->firstOrFail();
+        $card->call('editContract', $contract->id)
+            ->assertSet('contractParts.0.date', '20.11.2026')
+            ->assertSet('contractParts.1.date', '15.06.2027')
+            ->assertSee('Изменить контракт')
+            ->assertDontSee('type="date"', false);
+
+        $edit = $card->html();
+        $this->assertSame(2, substr_count($edit, 'data-day-picker'));
+        $this->assertSame(2, substr_count($edit, 'data-day-open'));
+        $this->assertStringContainsString('id="contract-part-date-0"', $edit);
+        $this->assertStringContainsString('id="contract-part-date-1"', $edit);
+
+        $card->call('openContractDate', 1)
+            ->assertSet('contractPickerMonth', 6)
+            ->assertSet('contractPickerYear', 2027)
+            ->assertSee('Июнь 2027')
+            ->call('pickContractDate', 16)
+            ->assertSet('contractParts.1.date', '16.06.2027')
+            ->assertSet('contractParts.0.date', '20.11.2026')
+            ->assertSet('contractParts.0.amount', '10,00')
+            ->assertSet('contractParts.1.amount', '32,06');
+    }
+
     /**
      * @return array{0: User, 1: Household}
      */

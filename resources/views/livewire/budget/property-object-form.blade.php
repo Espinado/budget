@@ -172,17 +172,22 @@
                     <input wire:model="contractNote" type="text" maxlength="200" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide">
                     <span class="mt-1 block text-base text-stone-500">{{ __('Страховщик и номер полиса. В план не попадает.') }}</span>
                 </label>
+                @once
+                    <style>
+                        .contract-day-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.25rem; }
+                        .contract-day-grid button { min-height: 2.75rem; border-radius: 0.75rem; }
+                        .contract-day-grid button.is-selected { background: #0f6e6b; color: #fff; }
+                        .contract-day-grid button.is-today:not(.is-selected) { box-shadow: inset 0 0 0 1px #0f6e6b; }
+                    </style>
+                @endonce
                 @foreach ($contractParts as $index => $part)
-                    <div class="grid grid-cols-1 gap-2">
+                    <div class="grid grid-cols-1 gap-2" wire:key="contract-part-{{ $editingContractId }}-{{ $index }}">
                         <label class="block">
                             <span class="text-base text-stone-600">{{ __('Сумма') }}</span>
                             <input wire:model="contractParts.{{ $index }}.amount" data-money inputmode="decimal" placeholder="0,00" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide">
                         </label>
                         @error('contractParts.'.$index.'.amount') <p class="text-base text-rose-700">{{ $message }}</p> @enderror
-                        <label class="block">
-                            <span class="text-base text-stone-600">{{ __('Дата') }}</span>
-                            <x-date-input wire:model="contractParts.{{ $index }}.date" class="mt-1 w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 outline-none focus:border-tide" />
-                        </label>
+                        @include('livewire.budget.partials.contract-day-picker', ['index' => $index, 'part' => $part])
                         @error('contractParts.'.$index.'.date') <p class="text-base text-rose-700">{{ $message }}</p> @enderror
                     </div>
                 @endforeach

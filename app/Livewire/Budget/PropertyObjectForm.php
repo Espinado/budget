@@ -17,6 +17,7 @@ use App\Models\PropertyContract;
 use App\Models\Transaction;
 use App\Models\PropertyObject;
 use App\Services\Budget\PeriodGenerator;
+use App\Support\AppDate;
 use App\Support\CategoryTree;
 use App\Support\ContractDocuments;
 use App\Support\Money;
@@ -70,6 +71,12 @@ class PropertyObjectForm extends Component
 
     /** @var list<array{amount: string, date: string}> */
     public array $contractParts = [['amount' => '', 'date' => '']];
+
+    public ?int $contractDatePicker = null;
+
+    public int $contractPickerYear = 2026;
+
+    public int $contractPickerMonth = 1;
 
     public mixed $contractDocument = null;
 
@@ -137,6 +144,7 @@ class PropertyObjectForm extends Component
         $this->contractTitle = $contract->title;
         $this->contractNote = (string) ($contract->note ?? '');
         $this->contractParts = $parts === [] ? [['amount' => '', 'date' => '']] : $parts;
+        $this->contractDatePicker = null;
         $this->resetErrorBag();
     }
 
@@ -199,6 +207,109 @@ class PropertyObjectForm extends Component
     public function addContractPart(): void
     {
         $this->contractParts[] = ['amount' => '', 'date' => ''];
+    }
+
+    public function openContractDate(int $index): void
+    {
+        if (! isset($this->contractParts[$index]) || ! is_array($this->contractParts[$index])) {
+            return;
+        }
+
+        if ($this->contractDatePicker === $index) {
+            $this->contractDatePicker = null;
+
+            return;
+        }
+
+        $parsed = AppDate::parse((string) ($this->contractParts[$index]['date'] ?? ''));
+        $cursor = $parsed ?? CarbonImmutable::now('Europe/Riga');
+        $this->contractPickerYear = (int) $cursor->year;
+        $this->contractPickerMonth = (int) $cursor->month;
+        $this->contractDatePicker = $index;
+    }
+
+    public function shiftContractDateMonth(int $delta): void
+    {
+        if ($this->contractDatePicker === null) {
+            return;
+        }
+
+        $cursor = CarbonImmutable::create(
+            $this->contractPickerYear,
+            $this->contractPickerMonth,
+            1,
+            0,
+            0,
+            0,
+            'Europe/Riga',
+        )->addMonths(max(-24, min(24, $delta)));
+
+        if ($cursor->year < 1900 || $cursor->year > 2100) {
+            return;
+        }
+
+        $this->contractPickerYear = (int) $cursor->year;
+        $this->contractPickerMonth = (int) $cursor->month;
+    }
+
+    public function pickContractDate(int $day): void
+    {
+        $index = $this->contractDatePicker;
+
+        if ($index === null || ! isset($this->contractParts[$index]) || ! is_array($this->contractParts[$index])) {
+            return;
+        }
+
+        if (! checkdate($this->contractPickerMonth, $day, $this->contractPickerYear)) {
+            return;
+        }
+
+        $this->contractParts[$index]['date'] = sprintf('%02d.%02d.%04d', $day, $this->contractPickerMonth, $this->contractPickerYear);
+        $this->contractDatePicker = null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function contractPickerWeekdays(): array
+    {
+        if (app()->getLocale() === 'lv') {
+            return ['Pr', 'Ot', 'Tr', 'Ce', 'Pk', 'Se', 'Sv'];
+        }
+
+        return ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+    }
+
+    public function contractPickerHeading(): string
+    {
+        $months = app()->getLocale() === 'lv'
+            ? [1 => 'Janvāris', 2 => 'Februāris', 3 => 'Marts', 4 => 'Aprīlis', 5 => 'Maijs', 6 => 'Jūnijs', 7 => 'Jūlijs', 8 => 'Augusts', 9 => 'Septembris', 10 => 'Oktobris', 11 => 'Novembris', 12 => 'Decembris']
+            : [1 => 'Январь', 2 => 'Февраль', 3 => 'Март', 4 => 'Апрель', 5 => 'Май', 6 => 'Июнь', 7 => 'Июль', 8 => 'Август', 9 => 'Сентябрь', 10 => 'Октябрь', 11 => 'Ноябрь', 12 => 'Декабрь'];
+
+        return ($months[$this->contractPickerMonth] ?? '').' '.$this->contractPickerYear;
+    }
+
+    /**
+     * @return list<int|null>
+     */
+    public function contractPickerCells(): array
+    {
+        $first = CarbonImmutable::create(
+            $this->contractPickerYear,
+            $this->contractPickerMonth,
+            1,
+            0,
+            0,
+            0,
+            'Europe/Riga',
+        );
+        $cells = array_fill(0, $first->dayOfWeekIso - 1, null);
+
+        for ($day = 1; $day <= $first->daysInMonth; $day++) {
+            $cells[] = $day;
+        }
+
+        return $cells;
     }
 
     public function openCredit(): void
@@ -378,6 +489,7 @@ class PropertyObjectForm extends Component
         $this->contractNote = '';
         $this->contractParts = [['amount' => '', 'date' => '']];
         $this->contractDocument = null;
+        $this->contractDatePicker = null;
         $this->resetErrorBag();
     }
 
