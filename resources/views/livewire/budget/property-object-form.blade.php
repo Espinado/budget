@@ -3,6 +3,7 @@
         <x-back-link :href="route('objects.index')">{{ __('← К объектам') }}</x-back-link>
         <h1 class="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">{{ __('Карточка объекта') }}</h1>
         <p class="mt-2 max-w-2xl text-base text-stone-600">{{ __('Карточка связывает существующие долги и категории. Здесь же можно добавить расход, контракт или кредит.') }}</p>
+        <p class="mt-2 max-w-2xl text-base text-stone-600">{{ __('Одно название расхода живёт в одном месте.') }}</p>
         @if (session('status'))
             <p class="mt-3 rounded-2xl bg-tide-soft px-4 py-3 text-base text-tide">{{ session('status') }}</p>
         @endif
@@ -267,7 +268,7 @@
             @if ($debtAttached)
                 <p class="mt-2 text-base text-stone-700">{{ __('Долг, который ещё привязан, не даёт удалить карточку. Строки плана не мешают.') }}</p>
             @else
-                <p class="mt-2 text-base text-stone-700">{{ __('Удаляется только карточка и её связи. Долги и строки плана в бюджете остаются.') }}</p>
+                <p class="mt-2 text-base text-stone-700">{{ __('Удаляется карточка и её связи. Долги, строки плана и папка, в которой они уже лежат, остаются. Пустая папка карточки убирается, чтобы то же название не осталось вторым местом.') }}</p>
             @endif
             @error('delete') <p class="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-base text-rose-700">{{ $message }}</p> @enderror
             <button type="button" wire:click="delete" class="mt-4 w-full rounded-2xl bg-rose-700 px-4 py-3 text-base font-medium text-white">{{ __('Удалить карточку') }}</button>

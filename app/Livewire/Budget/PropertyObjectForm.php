@@ -236,9 +236,15 @@ class PropertyObjectForm extends Component
             throw ValidationException::withMessages(['expenseName' => __('Сначала сохраните место категории.')]);
         }
 
-        $child = $this->childCategory($category, $name);
-        $this->putPlanLine($periods, $object, $child, $name, $cents, $date);
-        $this->rememberCategory($child->id);
+        $categoryId = null;
+
+        DB::transaction(function () use ($periods, $object, $category, $name, $cents, $date, &$categoryId): void {
+            $child = $this->childCategory($category, $name);
+            $this->putPlanLine($periods, $object, $child, $name, $cents, $date, 'expenseName');
+            $categoryId = (int) $child->id;
+        });
+
+        $this->rememberIfOurs($object, $categoryId);
 
         $this->showExpense = false;
         $this->expenseName = '';
@@ -288,44 +294,41 @@ class PropertyObjectForm extends Component
         }
 
         $stored = null;
-        $contract = null;
 
         if ($this->contractDocument instanceof TemporaryUploadedFile) {
             $stored = ContractDocuments::put($this->contractDocument, 'contractDocument');
         }
 
+        $categoryId = null;
+
         try {
-            $child = $this->childCategory($category, $title, 'contractTitle');
-            $this->rememberCategory($child->id);
-            $lineIds = [];
+            DB::transaction(function () use ($periods, $object, $category, $title, $note, $parts, $stored, &$categoryId): void {
+                $child = $this->childCategory($category, $title, 'contractTitle');
+                $lineIds = [];
 
-            foreach ($parts as $part) {
-                $line = $this->putPlanLine($periods, $object, $child, $title, $part['cents'], $part['date']);
-                $lineIds[] = $line->id;
-            }
+                foreach ($parts as $part) {
+                    $line = $this->putPlanLine($periods, $object, $child, $title, $part['cents'], $part['date'], 'contractTitle', true);
+                    $lineIds[] = $line->id;
+                }
 
-            $contract = PropertyContract::query()->create([
-                'property_object_id' => $object->id,
-                'title' => $title,
-                'note' => $note === '' ? null : $note,
-                'document_path' => $stored['document_path'] ?? null,
-                'document_mime' => $stored['document_mime'] ?? null,
-                'document_name' => $stored['document_name'] ?? null,
-            ]);
-            $contract->planLines()->sync($lineIds);
-        } catch (\Throwable $exception) {
-            if ($contract instanceof PropertyContract && $contract->exists) {
-                $contract->update([
-                    'document_path' => null,
-                    'document_mime' => null,
-                    'document_name' => null,
+                $contract = PropertyContract::query()->create([
+                    'property_object_id' => $object->id,
+                    'title' => $title,
+                    'note' => $note === '' ? null : $note,
+                    'document_path' => $stored['document_path'] ?? null,
+                    'document_mime' => $stored['document_mime'] ?? null,
+                    'document_name' => $stored['document_name'] ?? null,
                 ]);
-            }
-
+                $contract->planLines()->sync($lineIds);
+                $categoryId = (int) $child->id;
+            });
+        } catch (\Throwable $exception) {
             ContractDocuments::delete($stored['document_path'] ?? null);
 
             throw $exception;
         }
+
+        $this->rememberIfOurs($object, $categoryId);
 
         $this->showContract = false;
         $this->contractTitle = '';
@@ -344,22 +347,27 @@ class PropertyObjectForm extends Component
             return;
         }
 
-        $schedule = $this->childCategory($parent, $debt->counterparty);
-        $lineIds = $debt->installments()
-            ->whereNotNull('plan_line_id')
-            ->pluck('plan_line_id')
-            ->map(fn ($id): int => (int) $id)
-            ->all();
+        DB::transaction(function () use ($debt, $object, $parent): void {
+            $schedule = $this->childCategory($parent, $debt->counterparty, 'newCounterparty');
+            $lineIds = $debt->installments()
+                ->whereNotNull('plan_line_id')
+                ->pluck('plan_line_id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
 
-        if ($lineIds !== []) {
-            PlanLine::query()
-                ->whereIn('id', $lineIds)
-                ->whereDoesntHave('transactions')
-                ->update(['category_id' => $schedule->id]);
-            $object->planLines()->syncWithoutDetaching($lineIds);
-        }
+            if ($lineIds !== []) {
+                PlanLine::query()
+                    ->whereIn('id', $lineIds)
+                    ->whereDoesntHave('transactions')
+                    ->update(['category_id' => $schedule->id]);
 
-        $object->debts()->syncWithoutDetaching([$debt->id]);
+                foreach ($lineIds as $lineId) {
+                    $this->claimPlanLine($object, PlanLine::query()->findOrFail($lineId), 'newCounterparty');
+                }
+            }
+
+            $object->debts()->syncWithoutDetaching([$debt->id]);
+        });
 
         if (! in_array($debt->id, $this->normalizeIds($this->debtIds), true)) {
             $this->debtIds[] = $debt->id;
@@ -434,7 +442,14 @@ class PropertyObjectForm extends Component
             ]);
         }
 
-        $object->delete();
+        DB::transaction(function () use ($object): void {
+            $category = $object->category;
+            $object->delete();
+
+            if ($category instanceof Category) {
+                $this->releaseObjectCategory($category);
+            }
+        });
 
         $this->redirect(route('objects.index'));
     }
@@ -645,8 +660,10 @@ class PropertyObjectForm extends Component
             ->orderBy('id')
             ->get();
 
+        $owner = $this->objectOwning($category);
+
         foreach ($others as $other) {
-            if (! $this->categoryCanJoin($category, $other)) {
+            if ($this->heldByAnotherObject($owner, $other) || ! $this->categoryCanJoin($category, $other)) {
                 throw ValidationException::withMessages(['name' => __('Такая категория уже есть.')]);
             }
         }
@@ -655,18 +672,26 @@ class PropertyObjectForm extends Component
     }
 
     /**
-     * One expense name lives in one place. A category already under the object
-     * is reused. The same name elsewhere is moved here, and any leftover copy
-     * is folded in. Nothing is copied, and a debt's own category stays put.
+     * One expense name lives in one place. A category already under this object
+     * is reused. A free category of the same name is moved here. A leaf that
+     * already belongs to another object stays on that card: the new line is
+     * filed there and the folder is not pulled across. A debt header, an object
+     * folder, and a folder with children are refused instead of copied.
      */
     private function childCategory(Category $parent, string $name, string $errorKey = 'expenseName'): Category
     {
-        $existing = Category::query()
+        $parent->loadMissing('household');
+        $current = PropertyObject::query()->where('category_id', $parent->id)->first();
+        $sameName = Category::query()
             ->where('household_id', $parent->household_id)
             ->where('type', CashflowType::Expense)
-            ->where('parent_id', $parent->id)
             ->where('name', $name)
-            ->first();
+            ->orderBy('id')
+            ->get();
+
+        $existing = $sameName->first(
+            fn (Category $candidate): bool => (int) ($candidate->parent_id ?? 0) === (int) $parent->id,
+        );
 
         if ($existing instanceof Category) {
             $this->foldSameName($existing);
@@ -674,13 +699,21 @@ class PropertyObjectForm extends Component
             return $existing->fresh();
         }
 
-        $movable = Category::query()
-            ->where('household_id', $parent->household_id)
-            ->where('type', CashflowType::Expense)
-            ->where('name', $name)
-            ->orderBy('id')
-            ->get()
-            ->first(fn (Category $candidate): bool => $this->categoryCanJoin($parent, $candidate));
+        $heldLeaf = $sameName->first(function (Category $candidate) use ($parent, $current): bool {
+            return $this->heldByAnotherObject($current, $candidate)
+                && $this->categoryCanBeObjectFolder($candidate)
+                && ! $this->categoryIsUnder($parent->household, (int) $parent->id, (int) $candidate->id);
+        });
+
+        if ($heldLeaf instanceof Category) {
+            $this->foldSameName($heldLeaf);
+
+            return $heldLeaf->fresh();
+        }
+
+        $movable = $sameName->first(
+            fn (Category $candidate): bool => $this->categoryCanJoin($parent, $candidate),
+        );
 
         if ($movable instanceof Category) {
             if ((int) ($movable->parent_id ?? 0) !== (int) $parent->id) {
@@ -692,13 +725,7 @@ class PropertyObjectForm extends Component
             return $movable->fresh();
         }
 
-        $blocked = Category::query()
-            ->where('household_id', $parent->household_id)
-            ->where('type', CashflowType::Expense)
-            ->where('name', $name)
-            ->exists();
-
-        if ($blocked) {
+        if ($sameName->isNotEmpty()) {
             throw ValidationException::withMessages([$errorKey => __('Такая категория уже есть.')]);
         }
 
@@ -713,6 +740,7 @@ class PropertyObjectForm extends Component
 
     private function foldSameName(Category $keeper): void
     {
+        $owner = $this->objectOwning($keeper);
         $others = Category::query()
             ->where('household_id', $keeper->household_id)
             ->where('type', $keeper->type)
@@ -722,13 +750,71 @@ class PropertyObjectForm extends Component
             ->get();
 
         foreach ($others as $extra) {
-            if (! $this->categoryCanJoin($keeper, $extra)) {
+            if ($this->heldByAnotherObject($owner, $extra) || ! $this->categoryCanJoin($keeper, $extra)) {
                 continue;
             }
 
             $this->repointCategory($extra, $keeper);
             $extra->delete();
         }
+    }
+
+    private function objectOwning(Category $category): ?PropertyObject
+    {
+        $category->loadMissing('household');
+        $objects = PropertyObject::query()
+            ->where('household_id', $category->household_id)
+            ->whereNotNull('category_id')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($objects as $object) {
+            if ((int) $object->category_id === (int) $category->id) {
+                return $object;
+            }
+
+            if ($this->categoryIsUnder($category->household, (int) $category->id, (int) $object->category_id)) {
+                return $object;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * True when another card already owns this category: it sits in that
+     * card's folder, or one of its plan lines is pivoted to that card.
+     */
+    private function heldByAnotherObject(?PropertyObject $current, Category $candidate): bool
+    {
+        $candidate->loadMissing('household');
+        $others = PropertyObject::query()
+            ->where('household_id', $candidate->household_id)
+            ->whereNotNull('category_id')
+            ->when($current instanceof PropertyObject, fn ($query) => $query->whereKeyNot($current->id))
+            ->orderBy('id')
+            ->get(['id', 'category_id']);
+
+        foreach ($others as $other) {
+            if ((int) $other->category_id === (int) $candidate->id) {
+                return true;
+            }
+
+            if ($this->categoryIsUnder($candidate->household, (int) $candidate->id, (int) $other->category_id)) {
+                return true;
+            }
+        }
+
+        $lineIds = PlanLine::query()->where('category_id', $candidate->id)->pluck('id');
+
+        if ($lineIds->isEmpty()) {
+            return false;
+        }
+
+        return DB::table('property_object_plan_lines')
+            ->whereIn('plan_line_id', $lineIds)
+            ->when($current instanceof PropertyObject, fn ($query) => $query->where('property_object_id', '!=', $current->id))
+            ->exists();
     }
 
     /**
@@ -787,7 +873,7 @@ class PropertyObjectForm extends Component
         DB::table('shopping_list_items')->where('category_id', $extra->id)->update(['category_id' => $keeper->id]);
     }
 
-    private function putPlanLine(PeriodGenerator $periods, PropertyObject $object, Category $category, string $title, int $cents, CarbonImmutable $date): PlanLine
+    private function putPlanLine(PeriodGenerator $periods, PropertyObject $object, Category $category, string $title, int $cents, CarbonImmutable $date, string $errorKey = 'expenseName', bool $forContract = false): PlanLine
     {
         $period = $periods->periodFor($object->household, $date);
         $existing = PlanLine::query()
@@ -799,15 +885,122 @@ class PropertyObjectForm extends Component
             ->first();
 
         if ($existing instanceof PlanLine) {
-            $object->planLines()->syncWithoutDetaching([$existing->id]);
+            $this->claimPlanLine($object, $existing, $errorKey, $forContract);
 
             return $existing;
         }
 
         $line = $periods->addPlanLine($period, $category, $title, $cents, $date);
-        $object->planLines()->syncWithoutDetaching([$line->id]);
+        $this->claimPlanLine($object, $line, $errorKey, $forContract);
 
         return $line;
+    }
+
+    /**
+     * Attach a plan line to this card. A line already on another card is left
+     * there, so the unique plan_line_id pivot cannot collide.
+     */
+    private function claimPlanLine(PropertyObject $object, PlanLine $line, string $errorKey, bool $forContract = false): void
+    {
+        $ownerId = DB::table('property_object_plan_lines')
+            ->where('plan_line_id', $line->id)
+            ->value('property_object_id');
+
+        if ($ownerId !== null && (int) $ownerId !== (int) $object->id) {
+            throw ValidationException::withMessages([
+                $errorKey => __('Эта строка плана уже привязана к другому объекту.'),
+            ]);
+        }
+
+        if ($forContract && DB::table('property_contract_plan_lines')->where('plan_line_id', $line->id)->exists()) {
+            throw ValidationException::withMessages([
+                $errorKey => __('Эта строка плана уже привязана к другому объекту.'),
+            ]);
+        }
+
+        if ($ownerId === null) {
+            $object->planLines()->syncWithoutDetaching([$line->id]);
+        }
+    }
+
+    private function rememberIfOurs(PropertyObject $object, int $categoryId): void
+    {
+        $lineIds = PlanLine::query()->where('category_id', $categoryId)->pluck('id');
+        $shared = $lineIds->isNotEmpty() && DB::table('property_object_plan_lines')
+            ->whereIn('plan_line_id', $lineIds)
+            ->where('property_object_id', '!=', $object->id)
+            ->exists();
+
+        if (! $shared) {
+            $this->rememberCategory($categoryId);
+        }
+    }
+
+    /**
+     * The card goes away. A folder that already holds expenses or plan lines
+     * stays in the budget. An empty folder of the same name is removed so the
+     * name is not left in a second place.
+     */
+    private function releaseObjectCategory(Category $category): void
+    {
+        $fresh = $category->fresh();
+
+        if (! $fresh instanceof Category) {
+            return;
+        }
+
+        $name = $fresh->name;
+        $householdId = (int) $fresh->household_id;
+        $type = $fresh->type;
+        $keepId = (int) $fresh->id;
+
+        if (! $this->categoryIsProtectedFolder($fresh) && ! $this->categoryHasBudgetUse($fresh)) {
+            $fresh->delete();
+            $keepId = 0;
+        }
+
+        $this->removeEmptyDuplicateNames($householdId, $type, $name, $keepId);
+    }
+
+    private function categoryIsProtectedFolder(Category $category): bool
+    {
+        if (PropertyObject::query()->where('category_id', $category->id)->exists()) {
+            return true;
+        }
+
+        return Debt::query()->where('category_id', $category->id)->exists();
+    }
+
+    private function categoryHasBudgetUse(Category $category): bool
+    {
+        if ($category->children()->exists() || $category->planLines()->exists() || $category->transactions()->exists() || $category->templates()->exists()) {
+            return true;
+        }
+
+        if (DB::table('shopping_list_categories')->where('category_id', $category->id)->exists()) {
+            return true;
+        }
+
+        return DB::table('shopping_list_items')->where('category_id', $category->id)->exists();
+    }
+
+    private function removeEmptyDuplicateNames(int $householdId, CashflowType $type, string $name, int $keepId): void
+    {
+        $duplicates = Category::query()
+            ->where('household_id', $householdId)
+            ->where('type', $type)
+            ->where('name', $name)
+            ->when($keepId > 0, fn ($query) => $query->whereKeyNot($keepId))
+            ->orderBy('id')
+            ->get();
+
+        foreach ($duplicates as $duplicate) {
+            if ($this->categoryIsProtectedFolder($duplicate) || $this->categoryHasBudgetUse($duplicate)) {
+                continue;
+            }
+
+            $duplicate->delete();
+        }
     }
 
     private function ownedObject(): PropertyObject

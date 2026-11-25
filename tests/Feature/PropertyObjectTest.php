@@ -177,7 +177,7 @@ class PropertyObjectTest extends TestCase
         }
         $this->assertSame(1, collect($freshNames)->filter(fn ($name) => $name === 'Дом')->count());
         $this->assertSame(0, collect($freshNames)->filter(fn ($name) => $name === 'Квартира')->count());
-        $this->assertSame(1, collect($freshNames)->filter(fn ($name) => $name === 'Квартира у моря')->count());
+        $this->assertSame(0, collect($freshNames)->filter(fn ($name) => $name === 'Квартира у моря')->count());
     }
 
     public function test_expense_category_is_one_checkbox_and_attaches_every_line(): void
@@ -1104,6 +1104,177 @@ class PropertyObjectTest extends TestCase
         $this->assertSame('Прушу', $folder->fresh()->name);
         $this->assertSame($before, Category::query()->count());
         $this->assertSame(1, Category::query()->where('name', 'Дом')->count());
+    }
+
+    public function test_a_second_object_keeps_a_shared_expense_in_place_and_the_plan_pivot_unique(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00', 'Europe/Riga'));
+        [$user, $household] = $this->family('Наша');
+        $home = $this->category($household, 'Дом');
+        $flatFolder = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $home->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Квартира',
+            'sort' => 2,
+        ]);
+        $carFolder = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $home->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Машина',
+            'sort' => 3,
+        ]);
+        $insurance = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $flatFolder->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Страховка',
+            'sort' => 4,
+        ]);
+        $loose = Category::query()->create([
+            'household_id' => $household->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Страховка',
+            'sort' => 5,
+        ]);
+        $period = $this->period($household);
+        $line = PlanLine::query()->create([
+            'period_id' => $period->id,
+            'category_id' => $insurance->id,
+            'title' => 'Страховка',
+            'amount_cents' => 3_000,
+            'expected_on' => '2026-11-12',
+        ]);
+        $looseLine = PlanLine::query()->create([
+            'period_id' => $period->id,
+            'category_id' => $loose->id,
+            'title' => 'Страховка',
+            'amount_cents' => 1_500,
+            'expected_on' => '2026-11-02',
+        ]);
+        $flat = PropertyObject::query()->create([
+            'household_id' => $household->id,
+            'category_id' => $flatFolder->id,
+            'name' => 'Квартира',
+            'kind' => 'apartment',
+            'label' => 'Бривибас 1',
+        ]);
+        $car = PropertyObject::query()->create([
+            'household_id' => $household->id,
+            'category_id' => $carFolder->id,
+            'name' => 'Машина',
+            'kind' => 'car',
+            'label' => 'AB-1234',
+        ]);
+        $flat->planLines()->sync([$line->id]);
+
+        Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $car])
+            ->assertSee('Одно название расхода живёт в одном месте.')
+            ->set('expenseName', 'Страховка')
+            ->set('expenseAmount', '45,00')
+            ->set('expenseDate', '2026-11-20')
+            ->call('saveExpense')
+            ->assertHasNoErrors();
+
+        $this->assertSame(1, Category::query()->where('name', 'Страховка')->count());
+        $this->assertNull(Category::query()->find($loose->id));
+        $this->assertSame($flatFolder->id, (int) $insurance->fresh()->parent_id);
+        $this->assertSame($insurance->id, (int) $line->fresh()->category_id);
+        $this->assertSame($insurance->id, (int) $looseLine->fresh()->category_id);
+        $this->assertSame(1_500, (int) $looseLine->fresh()->amount_cents);
+        $this->assertSame($flat->id, (int) DB::table('property_object_plan_lines')->where('plan_line_id', $line->id)->value('property_object_id'));
+
+        $added = PlanLine::query()->where('amount_cents', 4_500)->firstOrFail();
+        $this->assertSame($insurance->id, (int) $added->category_id);
+        $this->assertSame($car->id, (int) DB::table('property_object_plan_lines')->where('plan_line_id', $added->id)->value('property_object_id'));
+        $this->assertSame(
+            DB::table('property_object_plan_lines')->count(),
+            (int) DB::table('property_object_plan_lines')->distinct()->count('plan_line_id'),
+        );
+
+        $looseAgain = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $home->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Страховка',
+            'sort' => 6,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $car])
+            ->set('expenseName', 'Страховка')
+            ->set('expenseAmount', '30,00')
+            ->set('expenseDate', '2026-11-12')
+            ->call('saveExpense')
+            ->assertHasErrors('expenseName');
+
+        $this->assertNotNull(Category::query()->find($looseAgain->id));
+        $this->assertSame($home->id, (int) $looseAgain->fresh()->parent_id);
+        $this->assertSame($flatFolder->id, (int) $insurance->fresh()->parent_id);
+        $this->assertSame($flat->id, (int) DB::table('property_object_plan_lines')->where('plan_line_id', $line->id)->value('property_object_id'));
+        $this->assertSame(2, Category::query()->where('name', 'Страховка')->count());
+        $this->assertSame(
+            DB::table('property_object_plan_lines')->count(),
+            (int) DB::table('property_object_plan_lines')->distinct()->count('plan_line_id'),
+        );
+
+        Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $car])
+            ->call('openContract')
+            ->set('contractTitle', 'Страховка')
+            ->set('contractParts', [['amount' => '12,00', 'date' => '2026-12-01']])
+            ->call('saveContract')
+            ->assertHasNoErrors();
+
+        $contractLine = PlanLine::query()->where('amount_cents', 1_200)->firstOrFail();
+        $this->assertSame($insurance->id, (int) $contractLine->category_id);
+        $this->assertSame($flatFolder->id, (int) $insurance->fresh()->parent_id);
+        $this->assertSame($car->id, (int) DB::table('property_object_plan_lines')->where('plan_line_id', $contractLine->id)->value('property_object_id'));
+        $this->assertNull(Category::query()->find($looseAgain->id));
+        $this->assertSame(1, Category::query()->where('name', 'Страховка')->count());
+        $this->assertSame(
+            DB::table('property_object_plan_lines')->count(),
+            (int) DB::table('property_object_plan_lines')->distinct()->count('plan_line_id'),
+        );
+
+        $emptyDuplicate = Category::query()->create([
+            'household_id' => $household->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Квартира',
+            'sort' => 7,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $car])
+            ->assertSee('Пустая папка карточки убирается')
+            ->call('delete')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('objects.index'));
+
+        $this->assertNull(PropertyObject::query()->find($car->id));
+        $this->assertNull(Category::query()->find($carFolder->id));
+        $this->assertNotNull(Category::query()->find($flatFolder->id));
+        $this->assertNotNull(Category::query()->find($emptyDuplicate->id));
+        $this->assertSame($flatFolder->id, (int) $insurance->fresh()->parent_id);
+        $this->assertTrue(PlanLine::query()->whereKey($line->id)->exists());
+
+        Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $flat])
+            ->call('delete')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('objects.index'));
+
+        $this->assertNull(PropertyObject::query()->find($flat->id));
+        $this->assertNotNull(Category::query()->find($flatFolder->id));
+        $this->assertNull(Category::query()->find($emptyDuplicate->id));
+        $this->assertSame(1, Category::query()->where('name', 'Квартира')->count());
+        $this->assertSame(1, Category::query()->where('name', 'Страховка')->count());
+        $this->assertSame($flatFolder->id, (int) $insurance->fresh()->parent_id);
+        $this->assertTrue(PlanLine::query()->whereKey($line->id)->exists());
+        $this->assertSame(3_000, (int) $line->fresh()->amount_cents);
+        $this->assertSame(0, DB::table('property_object_plan_lines')->where('plan_line_id', $line->id)->count());
     }
 
     /**
