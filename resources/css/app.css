@@ -1,0 +1,1247 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../views/**/*.blade.php';
+@source '../../app/Support/CategoryIcons.php';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-paper: #f3efe6;
+    --color-ink: #1c1917;
+    --color-tide: #0f6e6b;
+    --color-tide-soft: #e6f3f2;
+}
+
+/* Help: figure floats left from md; text wraps via flow-root in the blade. */
+.help-wrap::after {
+    content: '';
+    display: table;
+    clear: both;
+}
+
+.help-page p,
+.help-page figcaption {
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+html {
+    font-size: 18px;
+}
+
+@media (min-width: 768px) {
+    html {
+        font-size: 20px;
+    }
+}
+
+body {
+    line-height: 1.5;
+}
+
+.text-stone-400,
+.text-stone-500 {
+    color: #44403c;
+}
+
+.budget-sheet > table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.budget-sheet > table > tbody > tr.budget-section > td {
+    border-top: 14px solid #f3efe6;
+    border-bottom: 1px solid rgba(28, 25, 23, 0.12);
+}
+
+.budget-sheet > table > tbody > tr.budget-section-income > td {
+    background: #e6f3f2;
+    color: #0f6e6b;
+    border-bottom-color: rgba(15, 110, 107, 0.28);
+}
+
+.budget-sheet > table > tbody > tr.budget-section-expense > td {
+    background: #f7f4ee;
+    color: #1c1917;
+}
+
+.budget-sheet > table > tbody > tr.budget-section:first-child > td {
+    border-top-width: 0;
+}
+
+.budget-sheet > table > tbody > tr.budget-section > td.budget-section-title {
+    color: #0c4a6e;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    box-shadow: none;
+}
+
+.budget-section-title .budget-section-figures {
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+.budget-sheet > table > tbody > tr.budget-parent > td {
+    border-top: 12px solid #f3efe6;
+    border-bottom: 1px solid #e7e5e4;
+    color: #1c1917;
+}
+
+.budget-sheet > table > tbody > tr.budget-parent > td {
+    background: #fffdf8;
+}
+
+.budget-sheet > table > tbody > tr.budget-parent > td:first-child {
+    font-weight: 700;
+    box-shadow: none;
+}
+
+.budget-sheet > table > tbody > tr.budget-parent.budget-over-plan > td {
+    border-bottom-color: #fb7185;
+    color: #881337;
+}
+
+.budget-sheet > table > tbody > tr.budget-parent.budget-over-plan > td:not(:nth-child(2)) {
+    background: #fecdd3;
+}
+
+.budget-sheet > table > tbody > tr.budget-parent.budget-over-plan > td:first-child {
+    box-shadow: inset 6px 0 0 #be123c;
+}
+
+.budget-sheet > table > tbody > tr.budget-subcategory > td,
+.budget-sheet > table > tbody > tr.budget-nested > td {
+    border-bottom: 1px solid #e7e5e4;
+}
+
+.budget-sheet > table > tbody > tr.budget-subcategory > td:not(:nth-child(2)),
+.budget-sheet > table > tbody > tr.budget-nested > td:not(:nth-child(2)) {
+    background: #fff;
+}
+
+.budget-sheet > table > tbody > tr.budget-section-income > td.budget-section-title {
+    color: #0f6e6b;
+}
+
+.budget-sheet > table > tbody > tr.budget-section-expense > td.budget-section-title {
+    color: #1c1917;
+}
+
+.budget-sheet > table > tbody > tr.budget-subcategory > td:first-child {
+    padding-left: 2.75rem;
+    font-weight: 600;
+    box-shadow: none;
+}
+
+.budget-sheet > table > tbody > tr.budget-nested > td:first-child {
+    padding-left: 4.25rem;
+    font-weight: 500;
+    box-shadow: none;
+}
+
+.budget-sheet > table > tbody > tr.budget-deals-nested > td {
+    padding-left: 4.25rem;
+}
+
+.budget-sheet tr.budget-nested span.rounded-xl,
+.budget-sheet tr.budget-subcategory span.rounded-xl {
+    background: #fff;
+    box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
+.budget-sheet tr.budget-nested span.rounded-xl svg,
+.budget-sheet tr.budget-subcategory span.rounded-xl svg {
+    width: 1.35rem;
+    height: 1.35rem;
+}
+
+.budget-sheet > table > tbody > tr.budget-subcategory.budget-on-plan > td,
+.budget-sheet > table > tbody > tr.budget-nested.budget-on-plan > td {
+    background: #fffdf8;
+    color: #1c1917;
+}
+
+.budget-sheet > table > tbody > tr.budget-subcategory.budget-over-plan > td:not(:nth-child(2)),
+.budget-sheet > table > tbody > tr.budget-nested.budget-over-plan > td:not(:nth-child(2)) {
+    background: #fecdd3;
+    color: #881337;
+}
+
+.budget-sheet > table > tbody > tr.budget-subcategory.budget-over-plan > td:first-child {
+    box-shadow: inset 6px 0 0 #fb7185;
+}
+
+.budget-sheet > table > tbody > tr.budget-nested.budget-over-plan > td:first-child {
+    box-shadow: inset 6px 0 0 #fda4af;
+}
+
+.field-invalid,
+.field-invalid > summary {
+    border-color: #e11d48 !important;
+}
+
+.swal2-container {
+    padding: 0.75rem;
+}
+
+.swal2-popup {
+    width: min(92vw, 26rem) !important;
+    padding: 1.25rem 1rem 1rem !important;
+    border-radius: 1.25rem !important;
+}
+
+.swal2-title {
+    font-size: 1.35rem !important;
+    color: #1c1917 !important;
+}
+
+.swal2-html-container {
+    font-size: 1.05rem !important;
+    color: #44403c !important;
+}
+
+.swal2-actions {
+    width: 100%;
+    flex-direction: column-reverse !important;
+    gap: 0.5rem;
+    margin-top: 1rem !important;
+}
+
+.swal2-styled {
+    width: 100% !important;
+    margin: 0 !important;
+    min-height: 3.25rem;
+    border-radius: 999px !important;
+    font-size: 1.05rem !important;
+}
+
+.plan-delete {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border-radius: 999px;
+    color: #be123c;
+    background: rgba(255, 255, 255, 0.72);
+}
+
+.plan-delete svg {
+    width: 1.15rem;
+    height: 1.15rem;
+}
+
+.budget-meter-row {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.55rem;
+}
+
+.budget-meter {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 0.4rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e7e5e4;
+}
+
+.budget-meter-percent {
+    flex: 0 0 auto;
+    color: #78716c;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.budget-meter-row:has(.budget-meter-done) .budget-meter-percent {
+    color: #0f6e6b;
+}
+
+.budget-meter > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: #1c1917;
+}
+
+.budget-meter-done > span {
+    background: #0f6e6b;
+}
+
+.budget-figure-done {
+    color: #0f6e6b;
+}
+
+.budget-over-plan .budget-meter {
+    background: #fecdd3;
+}
+
+.budget-over-plan .budget-meter > span {
+    background: #e11d48;
+}
+
+.budget-over-plan .budget-meter-percent {
+    color: #e11d48;
+}
+
+.budget-figure {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: #1c1917;
+    font: inherit;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+.budget-over-plan .budget-figure {
+    color: #e11d48;
+}
+
+.budget-ratio {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: #1c1917;
+    font: inherit;
+    font-size: 1.2rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    text-align: left;
+}
+
+span.budget-ratio {
+    cursor: default;
+}
+
+.budget-ratio .budget-figure,
+.budget-ratio .budget-plan {
+    font-size: inherit;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.budget-ratio .budget-figure.budget-figure-done {
+    color: #0f6e6b;
+}
+
+.budget-ratio .budget-plan {
+    color: inherit;
+}
+
+.budget-ratio:has(.budget-figure-done) {
+    color: #0f6e6b;
+}
+
+.budget-ratio.budget-ratio-over,
+.budget-ratio.budget-ratio-over .budget-figure {
+    color: #e11d48;
+}
+
+.budget-over-plan .budget-ratio {
+    color: #e11d48;
+}
+
+.budget-plan {
+    color: #78716c;
+    font-size: 0.95rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+.budget-record {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: #0f6e6b;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.budget-chevron {
+    background: #0f6e6b;
+}
+
+.budget-over-plan .budget-chevron {
+    background: #e11d48;
+}
+
+.budget-parent-item {
+    margin-top: 0.85rem;
+    border-radius: 0.9rem;
+    background: #e0f2fe;
+    padding: 0.7rem 0.85rem;
+    font-weight: 700;
+    color: #0c4a6e;
+    box-shadow: inset 4px 0 0 #0369a1;
+}
+
+.budget-sheet > table > tbody > tr.budget-deals > td {
+    background: #fff;
+    border-top: 0;
+    border-bottom: 1px solid #e7e5e4;
+    vertical-align: middle;
+}
+
+.budget-sheet > table > tbody > tr.budget-deals > td:first-child {
+    box-shadow: inset 6px 0 0 #bae6fd;
+}
+
+.receipt-preview {
+    display: block;
+    width: 48px;
+    height: 64px;
+    flex: 0 0 auto;
+    object-fit: cover;
+    object-position: top;
+    overflow: hidden;
+    border-radius: 0.4rem;
+    background: #f3efe6;
+    box-shadow: inset 0 0 0 1px rgba(28, 25, 23, 0.12);
+}
+
+.receipt-preview-empty {
+    height: 2rem;
+    width: auto;
+    padding: 0 0.7rem;
+}
+
+.receipt-open .receipt-preview {
+    object-fit: cover;
+}
+
+.deal-line {
+    display: grid;
+    grid-template-columns: 12ch minmax(0, 1fr) max-content max-content;
+    align-items: center;
+    gap: 0.35rem 0.9rem;
+    font-size: 1.125rem;
+}
+
+.deal-date {
+    width: 12ch;
+    min-width: 12ch;
+    max-width: 12ch;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.deal-note {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.deal-amount {
+    margin-left: 0;
+    justify-self: end;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.deal-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.9rem;
+}
+
+.receipt-open .receipt-label {
+    display: none;
+}
+
+.receipt-open {
+    display: inline-flex;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #075985;
+    cursor: pointer;
+}
+
+.receipt-label-empty {
+    color: #a8a29e;
+    font-size: 0.95rem;
+}
+
+.receipt-dialog {
+    flex-direction: column;
+    width: min(92vw, 36rem);
+    max-width: 92vw;
+    max-height: 92vh;
+    padding: 0.75rem;
+    border: 0;
+    border-radius: 1rem;
+    background: #fff;
+    overflow: hidden;
+}
+
+.receipt-dialog:not([open]) {
+    display: none;
+}
+
+.receipt-dialog[open] {
+    display: flex;
+    position: fixed;
+    z-index: 40;
+    inset: 0;
+    width: min(92vw, 36rem);
+    height: max-content;
+    max-height: 92vh;
+    margin: auto;
+}
+
+.receipt-dialog::backdrop {
+    background: rgba(28, 25, 23, 0.72);
+}
+
+.receipt-dialog-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.receipt-edit-open {
+    display: block;
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.35rem;
+    border: 0;
+    border-radius: 0.9rem;
+    background: #fff;
+    cursor: pointer;
+}
+
+.receipt-edit-shot {
+    display: block;
+    width: 100%;
+    max-height: 16rem;
+    object-fit: contain;
+    border-radius: 0.65rem;
+    background: #f3efe6;
+}
+
+.receipt-edit-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.receipt-edit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 999px;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+
+.receipt-edit-btn-file {
+    background: #fff;
+    color: #1c1917;
+    box-shadow: inset 0 0 0 1px rgba(28, 25, 23, 0.12);
+}
+
+.receipt-edit-btn-camera {
+    background: #0f6e6b;
+    color: #fff;
+}
+
+.receipt-stage {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    min-height: 12rem;
+    height: min(68vh, 32rem);
+    max-height: calc(92vh - 8.5rem);
+    overflow: hidden;
+    border-radius: 0.65rem;
+    background: #f3efe6;
+    touch-action: none;
+    cursor: grab;
+}
+
+.receipt-stage.is-panning {
+    cursor: grabbing;
+}
+
+.receipt-stage img {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    margin: 0;
+    object-fit: contain;
+    transform-origin: center center;
+    user-select: none;
+    -webkit-user-drag: none;
+    -webkit-touch-callout: none;
+    pointer-events: none;
+}
+
+.receipt-zoom {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.receipt-zoom button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 0;
+    border-radius: 999px;
+    background: #0f6e6b;
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.budget-nested-item {
+    margin-left: 1.15rem;
+    border-left: 4px solid #38bdf8;
+    background: #fff;
+    padding: 0.65rem 0.85rem;
+}
+
+.stats-card {
+    padding: 0.85rem 0.9rem;
+    border: 1px solid #e7e5e4;
+    border-radius: 1rem;
+    background: #fffdf8;
+}
+
+.stats-section {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: 1rem;
+    background: #f7f4ee;
+    color: #1c1917;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.stats-section-income {
+    background: #e6f3f2;
+    color: #0f6e6b;
+}
+
+.stats-section-transfer {
+    background: #f0f9ff;
+    color: #0c4a6e;
+}
+
+.stats-section-total {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.stats-hero {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.2rem 0.75rem;
+}
+
+.stats-hero-amount,
+.stats-nowrap {
+    margin-left: auto;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.stats-hero-amount {
+    font-size: clamp(1.35rem, 5.4vw, 1.875rem);
+    font-weight: 650;
+    line-height: 1.15;
+}
+
+.stats-meter-income > span {
+    background: #0f6e6b;
+}
+
+.budget-meter-row:has(.stats-meter-income) .budget-meter-percent {
+    color: #0f6e6b;
+}
+
+.stats-meter-transfer > span {
+    background: #0284c7;
+}
+
+.budget-meter-row:has(.stats-meter-transfer) .budget-meter-percent {
+    color: #0369a1;
+}
+
+.stats-purchase {
+    display: grid;
+    grid-template-columns: 11ch minmax(0, 1fr) auto;
+    gap: 0.35rem 0.75rem;
+    align-items: baseline;
+    padding: 0.55rem 0;
+    font-size: 0.95rem;
+}
+
+.stats-sheet {
+    width: 100%;
+    margin-top: 0.75rem;
+    border-collapse: collapse;
+    font-size: 1.05rem;
+}
+
+.stats-sheet th {
+    padding: 0.55rem 0.35rem;
+    border-bottom: 1px solid #e7e5e4;
+    font-weight: 600;
+    text-align: left;
+    color: #44403c;
+}
+
+.stats-sheet td {
+    padding: 0.75rem 0.35rem;
+    border-top: 1px solid #f5f5f4;
+    vertical-align: middle;
+}
+
+.stats-sheet .stats-amount {
+    width: 8rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.stats-sheet .stats-share {
+    width: 28%;
+}
+
+.stats-link {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    gap: 0.5rem;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: #0c4a6e;
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.stats-sub .stats-link {
+    padding-left: 1.75rem;
+    font-weight: 500;
+}
+
+.stats-bar {
+    display: block;
+    height: 0.4rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #f5f5f4;
+}
+
+.stats-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+}
+
+.stats-bar-mobile,
+.stats-date-short {
+    display: none;
+}
+
+@media (max-width: 767px) {
+    .budget-sheet {
+        overflow: visible;
+    }
+
+    .budget-sheet > table {
+        min-width: 0;
+    }
+
+    .budget-sheet > table > thead {
+        display: none;
+    }
+
+    .budget-sheet > table > tbody > tr {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.35rem 0.75rem;
+        padding: 0.85rem 0.75rem;
+    }
+
+    .budget-sheet > table > tbody > tr > td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        width: auto;
+        min-width: 0;
+        padding: 0;
+        text-align: left;
+        font-size: 0.95rem;
+    }
+
+    .budget-sheet > table > tbody > tr > td:first-child {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+        font-size: 1rem;
+    }
+
+    .budget-sheet > table > tbody > tr > td:first-child button {
+        display: flex;
+        align-items: center;
+        max-width: 100%;
+        flex-wrap: nowrap;
+        white-space: normal;
+        text-align: left;
+    }
+
+    .budget-sheet > table > tbody > tr > td:first-child button > span:last-child {
+        min-width: 0;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-parent > td,
+    .budget-sheet > table > tbody > tr.budget-subcategory > td,
+    .budget-sheet > table > tbody > tr.budget-nested > td,
+    .budget-sheet > table > tbody > tr.budget-section > td {
+        display: block;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-section-income {
+        background: #e6f3f2;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-section-income > td.budget-section-title {
+        color: #0f6e6b;
+        border-bottom-color: rgba(15, 110, 107, 0.28);
+    }
+
+    .budget-sheet > table > tbody > tr.budget-section-expense > td.budget-section-title {
+        color: #1c1917;
+        border-bottom-color: rgba(28, 25, 23, 0.12);
+    }
+
+    .budget-sheet > table > tbody > tr > td:first-child button.budget-figure,
+    .budget-sheet > table > tbody > tr > td:first-child button.budget-ratio,
+    .budget-sheet > table > tbody > tr > td:first-child button.budget-record {
+        display: inline-flex;
+        flex: 0 0 auto;
+        flex-wrap: nowrap;
+        width: auto;
+        max-width: none;
+        white-space: nowrap;
+    }
+
+    .budget-sheet > table > tbody > tr > td:first-child button.plan-delete {
+        display: inline-flex;
+        flex: 0 0 auto;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        max-width: 2rem;
+        height: 2rem;
+        margin-top: 0.15rem;
+        padding: 0;
+        white-space: nowrap;
+    }
+
+    .budget-sheet > table > tbody > tr > td[class*="pl-12"] {
+        padding-left: 0.75rem;
+    }
+
+    .budget-sheet > table > tbody > tr > td[class*="pl-20"] {
+        padding-left: 1.25rem;
+    }
+
+    .budget-sheet > table > tbody > tr > td:nth-child(6) {
+        grid-column: 1 / -1;
+    }
+
+    .budget-sheet > table > tbody > tr > td:nth-child(2)::before { content: "Прогресс"; }
+    .budget-sheet > table > tbody > tr > td:nth-child(3)::before { content: "% дохода"; }
+    .budget-sheet > table > tbody > tr > td:nth-child(4)::before { content: "План"; }
+    .budget-sheet > table > tbody > tr > td:nth-child(5)::before { content: "Факт"; }
+    .budget-sheet > table > tbody > tr > td:nth-child(6)::before { content: "Разница"; }
+
+    .budget-sheet > table > tbody > tr > td:nth-child(n + 2)::before {
+        color: #78716c;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .budget-sheet > table > tbody > tr > td[colspan] {
+        display: block;
+        grid-column: 1 / -1;
+    }
+
+    .budget-sheet > table > tbody > tr > td[colspan]::before {
+        content: none;
+    }
+
+    .budget-sheet > table > tbody > tr > td input[inputmode="decimal"] {
+        width: 6.5rem;
+        min-width: 0;
+        flex: 0 0 auto;
+    }
+
+    .budget-sheet table table,
+    .budget-sheet table table thead,
+    .budget-sheet table table tbody,
+    .budget-sheet table table tr,
+    .budget-sheet table table th,
+    .budget-sheet table table td {
+        display: block;
+        width: 100%;
+        text-align: left;
+    }
+
+    .budget-sheet table table thead {
+        display: none;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-section {
+        margin: 0.85rem 0.4rem 0.35rem;
+        padding: 0.7rem 0.8rem 0.85rem 1rem;
+        background: #f7f4ee;
+        border-radius: 1rem;
+        box-shadow: none;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-section > td {
+        border: 0;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-section > td:not(:nth-child(2)) {
+        background: transparent;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-section > td.budget-section-title {
+        margin-bottom: 0.2rem;
+        padding-bottom: 0.45rem;
+        border-bottom: 1px solid rgba(28, 25, 23, 0.12);
+        font-size: 1.15rem;
+        color: #1c1917;
+        box-shadow: none;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-section-income {
+        background: #e6f3f2;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-section-income > td.budget-section-title {
+        color: #0f6e6b;
+        border-bottom-color: rgba(15, 110, 107, 0.28);
+    }
+
+    .budget-section-head {
+        flex-wrap: wrap;
+        row-gap: 0.15rem;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-parent {
+        margin: 0.85rem 0.4rem 0;
+        padding-left: 1rem;
+        background: #fffdf8;
+        border-radius: 1rem 1rem 0 0;
+        box-shadow: none;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-parent.budget-over-plan {
+        background: #fecdd3;
+        box-shadow: none;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-parent > td {
+        border: 0;
+        background: transparent;
+        color: inherit;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-parent > td:not(:nth-child(2)) {
+        background: transparent;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-parent > td:first-child,
+    .budget-sheet > table > tbody > tr.budget-section > td:first-child,
+    .budget-sheet > table > tbody > tr.budget-subcategory > td:first-child,
+    .budget-sheet > table > tbody > tr.budget-nested > td:first-child {
+        box-shadow: none;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-parent > td:first-child {
+        margin-bottom: 0.15rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 0;
+        color: #1c1917;
+        font-weight: 700;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-parent.budget-over-plan > td:first-child,
+    .budget-sheet > table > tbody > tr.budget-subcategory.budget-over-plan > td:first-child,
+    .budget-sheet > table > tbody > tr.budget-nested.budget-over-plan > td:first-child {
+        box-shadow: none;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-parent.budget-over-plan > td:first-child {
+        border-bottom-color: rgba(190, 18, 60, 0.28);
+        color: #881337;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-subcategory,
+    .budget-sheet > table > tbody > tr.budget-nested {
+        margin: 0.45rem 0.4rem 0 0.85rem;
+        padding: 0.85rem 0.75rem 0.85rem 0.85rem;
+        grid-template-columns: 1fr;
+        background: #fffdf8;
+        color: #1c1917;
+        border-radius: 1rem;
+        box-shadow: none;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-nested {
+        margin-left: 1.35rem;
+        box-shadow: none;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-subcategory > td,
+    .budget-sheet > table > tbody > tr.budget-nested > td,
+    .budget-sheet > table > tbody > tr.budget-subcategory > td:not(:nth-child(2)),
+    .budget-sheet > table > tbody > tr.budget-nested > td:not(:nth-child(2)) {
+        background: transparent;
+        color: inherit;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-subcategory.budget-over-plan,
+    .budget-sheet > table > tbody > tr.budget-nested.budget-over-plan {
+        background: #fecdd3;
+        color: #881337;
+        box-shadow: none;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-subcategory > td:nth-child(6),
+    .budget-sheet > table > tbody > tr.budget-nested > td:nth-child(6) {
+        grid-column: auto;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-subcategory > td:first-child,
+    .budget-sheet > table > tbody > tr.budget-nested > td:first-child {
+        padding-left: 0;
+        font-weight: 600;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-nested > td:first-child {
+        font-weight: 500;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-deals {
+        display: block;
+        margin: 0 0.4rem;
+        padding: 0.75rem 0.85rem 0.75rem 1rem;
+        background: #fff;
+        box-shadow: none;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-deals > td,
+    .budget-sheet > table > tbody > tr.budget-deals > td:first-child {
+        display: block;
+        width: 100%;
+        padding: 0;
+        border: 0;
+        text-align: left;
+        box-shadow: none;
+    }
+
+    .deal-line {
+        display: grid;
+        grid-template-columns: 12ch minmax(0, 1fr) auto;
+        grid-template-areas:
+            "date note amount"
+            "tools tools tools";
+        align-items: center;
+        gap: 0.45rem 0.75rem;
+    }
+
+    .deal-date {
+        grid-area: date;
+        width: 12ch;
+        min-width: 12ch;
+        max-width: 12ch;
+        white-space: nowrap;
+    }
+
+    .deal-note {
+        grid-area: note;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .deal-amount {
+        grid-area: amount;
+        margin-left: 0;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .deal-tools {
+        grid-area: tools;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.85rem;
+    }
+
+    .receipt-label {
+        display: inline;
+    }
+
+    .receipt-open .receipt-preview {
+        display: block;
+        width: 48px;
+        height: 64px;
+    }
+
+    .receipt-edit-open,
+    .receipt-edit-shot {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .receipt-label {
+        font-size: 1rem;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 0.15rem;
+    }
+
+    .receipt-label-empty {
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-deals > td[colspan] {
+        width: 100%;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-deals > td::before,
+    .budget-sheet > table > tbody > tr.budget-deals > td:nth-child(2)::before,
+    .budget-sheet > table > tbody > tr.budget-deals > td:nth-child(3)::before,
+    .budget-sheet > table > tbody > tr.budget-deals > td:nth-child(4)::before,
+    .budget-sheet > table > tbody > tr.budget-deals > td:nth-child(5)::before,
+    .budget-sheet > table > tbody > tr.budget-deals > td:nth-child(6)::before {
+        content: none;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-parent:has(+ tr:not(.budget-nested):not(.budget-subcategory):not(.budget-deals)),
+    .budget-sheet > table > tbody > tr.budget-parent:last-child {
+        border-radius: 1rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .budget-sheet > table > tbody > tr.budget-deals:has(+ tr:not(.budget-nested):not(.budget-subcategory):not(.budget-deals)),
+    .budget-sheet > table > tbody > tr.budget-deals:last-child {
+        border-radius: 0 0 1rem 1rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .stats-sheet .stats-share,
+    .stats-date-long {
+        display: none;
+    }
+
+    .stats-bar-mobile,
+    .stats-date-short {
+        display: block;
+    }
+
+    .stats-bar-mobile {
+        max-width: 8rem;
+        margin-top: 0.35rem;
+    }
+
+    .stats-ops thead {
+        display: none;
+    }
+
+    .stats-ops tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "date amount"
+            "note note";
+        gap: 0.15rem 0.75rem;
+        padding: 0.75rem 0;
+        border-top: 1px solid #f5f5f4;
+    }
+
+    .stats-ops td {
+        display: block;
+        border: 0;
+        padding: 0;
+    }
+
+    .stats-op-date {
+        grid-area: date;
+    }
+
+    .stats-op-note {
+        grid-area: note;
+        color: #57534e;
+    }
+
+    .stats-op-amount {
+        grid-area: amount;
+        text-align: right;
+    }
+}

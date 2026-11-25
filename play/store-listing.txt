@@ -1,0 +1,200 @@
+Family Money — тексты для Google Play
+Источник: privacy.blade.php, routes/web.php, Settings::deleteOwnAccount, DeleteOwnAccount, config/mail.php.
+Консоль Play отсюда не отправляется: нужен вход владельца аккаунта.
+
+Дата на странице политики в репозитории: «Редакция от 13 ноября 2026 года.»
+В более ранней заметке была дата 12 ноября. Перед вставкой откройте https://budget.arguss.lv/privacy и сверьте строку на живой странице.
+
+================================================================================
+КАРТОЧКА МАГАЗИНА
+================================================================================
+
+Название приложения
+Family Money
+
+Краткое описание, русский (60 знаков, лимит 80)
+Семейный бюджет: план, счета, траты, долги и список покупок.
+
+Полное описание, русский
+
+Family Money — семейный бюджет для одной семьи. Сервис для людей от 16 лет.
+
+В приложении общий план месяца, счета и остатки, траты, переводы между своими счетами, долги и список покупок. Участники одной семьи видят этот общий бюджет. Личные коды и документы в разделе хранения видит только тот, кто их сохранил. Текст кодов и файлы документов хранятся в зашифрованном виде.
+
+Вы сами вносите суммы. Приложение не проводит платежи и не списывает деньги. Рекламы нет. Аналитики и счётчиков нет. Контакты телефона, геолокация и другие файлы телефона приложению не нужны.
+
+Аккаунт удаляется в настройках: внизу страницы кнопка «Удалить аккаунт», нужен текущий пароль. Если в семье остаётся другой участник, общий бюджет остаётся у него, а личные записи сейфа и загруженные документы удаляются. Если уходит последний участник, удаляется и бюджет. Если войти уже нельзя, напишите с почты этого аккаунта на rvr@arguss.lv.
+
+Политика конфиденциальности: https://budget.arguss.lv/privacy
+
+Краткое описание, латышский (61 знак, лимит 80)
+Ģimenes budžets: plāns, konti, izdevumi, parādi un iepirkumi.
+
+Полное описание, латышский
+Тексты сверены с lang/lv.json этого приложения.
+
+Family Money ir ģimenes budžets vienai ģimenei. Serviss paredzēts personām no 16 gadu vecuma.
+
+Lietotnē ir kopīgs mēneša plāns, konti un atlikumi, izdevumi, pārvedumi starp saviem kontiem, parādi un iepirkumu saraksts. Vienas ģimenes dalībnieki redz šo kopīgo budžetu. Personīgos kodus un dokumentus glabāšanas sadaļā redz tikai tas, kurš tos saglabāja. Kodu teksts un dokumentu faili tiek glabāti šifrēti.
+
+Summas ievadāt paši. Lietotne neveic maksājumus un pati nenoņem naudu. Reklāmu nav. Analītikas skaitītāju nav. Lietotnei nav vajadzīgi tālruņa kontakti, ģeolokācija vai citas tālruņa datnes.
+
+Kontu dzēš iestatījumos: lapas apakšā ir poga «Dzēst kontu», vajadzīga pašreizējā parole. Ja ģimenē paliek cits dalībnieks, kopīgais budžets paliek viņam, bet personīgie seifa ieraksti un augšupielādētie dokumenti tiek dzēsti. Ja aiziet pēdējais dalībnieks, tiek dzēsts arī budžets. Ja pieteikties vairs nevar, uzrakstiet no šī konta e-pasta uz rvr@arguss.lv.
+
+Privātuma politika: https://budget.arguss.lv/privacy
+
+Категория
+Финансы (Finance).
+
+Сайт
+https://budget.arguss.lv
+
+Почта
+rvr@arguss.lv
+
+Политика конфиденциальности
+https://budget.arguss.lv/privacy
+
+================================================================================
+DATA SAFETY
+================================================================================
+
+Does your app collect or share any of the required user data types?
+Yes. The app collects data the person enters. It does not sell data and does not send it to advertising or analytics services.
+
+Is all of the user data collected by your app encrypted in transit?
+Yes. Pages open over HTTPS.
+
+Which account creation methods does your app support?
+Username and password. Registration asks for a name, an email address, and a password. Only a hash of the password is stored.
+
+Do you provide a way for users to request that their data is deleted?
+Yes.
+
+Deletion URL (web)
+https://budget.arguss.lv/privacy
+
+Deletion in the app
+Settings (/settings), bottom of the page. Button «Удалить аккаунт» (Latvian: «Dzēst kontu»). The form asks for the current password and a confirmation.
+
+What deletion does
+The button removes that person's sign-in: name, email, password hash, personal vault entries, and documents they uploaded. Vault rows are removed with the user (database cascade). Vault files are deleted from storage.
+If another household member remains, the shared budget stays with them: accounts, plan, transactions, debts, shopping lists, and receipts.
+If this is the last member, the household budget is deleted with the account: accounts, transactions, debts, shopping lists, and receipts.
+If the person can no longer sign in, they write from that account's email to rvr@arguss.lv. The same steps are on the privacy page.
+
+Data types to declare
+
+1. Personal info — Name
+Collected: Yes. Shared with third parties: No.
+Required for registration.
+Purpose: Account management.
+Stored while the account exists. Deleted with the account.
+
+2. Personal info — Email address
+Collected: Yes. Shared with third parties: No.
+Required for registration and sign-in.
+Purpose: Account management, App functionality.
+A support message is emailed to rvr@arguss.lv and is not stored in the budget database. A vault document is emailed only to an address the user types.
+
+3. Personal info — Other
+Collected: Yes. This is the private vault: passwords and notes the user saves.
+Shared with third parties: No. Other people in the same household cannot see these entries.
+Optional. Purpose: App functionality.
+Encrypted at rest. Deleted with the account.
+The sign-in password itself is only a hash. Do not list the hash as a separate data type.
+
+4. Financial info — Other financial info
+Collected: Yes. Shared with third parties: No.
+What it is: household name, accounts, balances, categories, plan, transactions, notes, transfers between the user's own accounts, debts (counterparty, amounts, rate, schedule), and the shared shopping list. The user types these in. The app does not connect to a bank and does not pull Luminor, Creditea, or any other account.
+Purpose: App functionality.
+Invited members of the same household can see this shared budget. That is visibility inside the app, not a transfer to another company. Do not mark it as sold or used for ads.
+Each record is something the user chooses to enter.
+
+5. Files and docs
+Collected: Yes, only if the user uploads them. Shared with third parties: No.
+Two kinds:
+- A receipt file attached to a transaction. It stays with the shared budget if other household members remain.
+- A document in the vault (PDF, JPG, PNG, or WEBP, up to 10 MB), for example a contract the user uploads. The file is encrypted at rest and only the account that saved it can see it. The user can download it or email it to an address they type.
+Purpose: App functionality. Optional.
+Receipt files are stored as uploaded files. They are not in the encrypted vault.
+
+Do not declare
+Location. Contacts. Camera or photo-library access. The app does not read the phone's files on its own.
+Photos as a standing permission: a receipt or vault file is a file the user chooses to upload. There is no background photo access. If the form has no separate "upload" and only a Photos type, declare Photos as optional, collected, not shared, purpose App functionality, and only for files the user attaches. Otherwise Files and docs is enough.
+Web browsing. App interactions for analytics. Crash logs and diagnostics. Installed apps.
+Device or other IDs. There is no advertising ID. Session cookies and the optional «Запомнить меня» / «Atcerēties mani» cookie keep the sign-in and protect forms. They are not ad cookies and they are not a device identifier.
+Health, messages, audio, calendar, contacts, credit score, purchase history, user payment info. The app does not take payments.
+
+Purposes that are not used
+Advertising or marketing. Analytics. Account-based advertising. Developer communications beyond a message the user sends to support. Fraud prevention, other than the login cookies and form protection already described.
+
+Is data processed ephemerally?
+No. Records stay on the server that hosts the site for as long as the account exists. There is no separate copy of the budget on the phone.
+
+================================================================================
+AUDIENCE
+================================================================================
+
+Target age group
+16 and older. Not designed for children. Do not enroll in Designed for Families.
+
+The privacy policy says: «Сервис предназначен для лиц начиная с 16 лет.»
+Registration does not ask for a date of birth. There is no children's mode, no ads aimed at children, and no social network.
+
+Appeal to children
+No.
+
+================================================================================
+CONTENT RATING
+================================================================================
+
+Answer these as a private finance app.
+
+Violence: No
+Sexual content or nudity: No
+Profanity or crude humor in the app itself: No
+Controlled substances: No. The app does not depict or promote them.
+Gambling, simulated gambling, loot boxes, cash prizes: No
+Users can purchase digital goods: No
+The app shares the user's physical location with other users: No
+The app is a web browser or search engine: No
+Public user-generated content: No
+Social features, public profiles, or a feed: No
+
+Household, if the form asks whether users can exchange content
+Invited members of one household see the shared budget, debts, and shopping list. There is no chat with strangers, no public posts, and no voice or image sharing with people outside that household.
+If the question means unrestricted or public interaction, answer No.
+If the question means any exchange with another signed-in person, answer Yes and add that it is limited to people invited into the same household. That follow-up can add a "users interact" descriptor in some regions. It does not describe a social network.
+
+Expected result if public interaction is No
+Everyone / PEGI 3 / IARC 3+ / USK 0. A finance app with no violence and no public content.
+
+================================================================================
+OTHER DECLARATIONS
+================================================================================
+
+Ads
+No. The app does not contain ads.
+
+Financial features
+None. Do not declare banking, loans, payments, crypto, or insurance.
+Debts, rates, and schedules are records the user types. The app does not lend money, open an account, or move money.
+
+News
+No.
+
+Government
+No.
+
+Health
+No.
+
+App access for review
+The budget, statistics, debts, settings, and vault open only after sign-in.
+Give Play a separate demo login. Do not send the live household rvr@arguss.lv.
+This file does not create that login on the production server.
+
+Privacy policy field
+https://budget.arguss.lv/privacy
+The page is public. It does not name a legal person. It gives the support address rvr@arguss.lv.

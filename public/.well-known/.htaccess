@@ -1,0 +1,12 @@
+<IfModule mod_mime.c>
+    AddType application/json .json
+    <Files "assetlinks.json">
+        ForceType application/json
+    </Files>
+</IfModule>
+
+<IfModule mod_headers.c>
+    <Files "assetlinks.json">
+        Header set Cache-Control "no-cache"
+    </Files>
+</IfModule>

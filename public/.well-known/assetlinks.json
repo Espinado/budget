@@ -1,0 +1,12 @@
+[
+    {
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "lv.arguss.familymoney",
+            "sha256_cert_fingerprints": [
+                "E6:F4:F3:0A:64:53:4C:67:B4:B8:32:0D:9D:76:61:E3:61:92:2F:0B:19:02:AD:6B:D7:06:12:80:07:A6:01:FC"
+            ]
+        }
+    }
+]
