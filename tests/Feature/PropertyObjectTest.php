@@ -974,6 +974,135 @@ class PropertyObjectTest extends TestCase
             ->assertDontSee('Машина');
     }
 
+    public function test_renaming_the_object_renames_its_category_and_leaves_the_child(): void
+    {
+        [$user, $household] = $this->family('Наша');
+        $home = $this->category($household, 'Дом');
+        $folder = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $home->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Прушу',
+            'sort' => 2,
+        ]);
+        $rent = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $folder->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Квартплата Прушу',
+            'sort' => 3,
+        ]);
+        $period = $this->period($household);
+        $line = PlanLine::query()->create([
+            'period_id' => $period->id,
+            'category_id' => $folder->id,
+            'title' => 'Прушу',
+            'amount_cents' => 100,
+            'expected_on' => '2026-11-02',
+        ]);
+        $childLine = PlanLine::query()->create([
+            'period_id' => $period->id,
+            'category_id' => $rent->id,
+            'title' => 'Квартплата Прушу',
+            'amount_cents' => 19_529,
+            'expected_on' => '2026-11-18',
+        ]);
+        $credit = $this->category($household, 'Кредит');
+        $mortgage = PlanLine::query()->create([
+            'period_id' => $period->id,
+            'category_id' => $credit->id,
+            'title' => 'Luminor Bank',
+            'amount_cents' => 27_843,
+            'expected_on' => '2026-11-10',
+        ]);
+        $debt = Debt::query()->create([
+            'household_id' => $household->id,
+            'category_id' => $credit->id,
+            'direction' => DebtDirection::Borrow,
+            'kind' => DebtKind::Bank,
+            'counterparty' => 'Luminor Bank',
+        ]);
+        $object = PropertyObject::query()->create([
+            'household_id' => $household->id,
+            'category_id' => $folder->id,
+            'name' => 'Прушу',
+            'kind' => 'apartment',
+            'label' => 'Прушу 1',
+        ]);
+        $object->debts()->sync([$debt->id]);
+        $before = Category::query()->count();
+
+        Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $object])
+            ->set('name', 'Prušu 4b-18')
+            ->set('label', 'Prušu 4b-18')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $object->refresh();
+        $this->assertSame('Prušu 4b-18', $object->name);
+        $this->assertSame('Prušu 4b-18', $object->label);
+        $this->assertSame($folder->id, (int) $object->category_id);
+        $this->assertSame('Prušu 4b-18', $folder->fresh()->name);
+        $this->assertSame($home->id, (int) $folder->fresh()->parent_id);
+        $this->assertSame('Квартплата Прушу', $rent->fresh()->name);
+        $this->assertSame($folder->id, (int) $rent->fresh()->parent_id);
+        $this->assertSame($before, Category::query()->count());
+        $this->assertSame(1, Category::query()->where('name', 'Prušu 4b-18')->count());
+        $this->assertSame(0, Category::query()->where('name', 'Прушу')->count());
+        $this->assertSame(100, (int) $line->fresh()->amount_cents);
+        $this->assertSame('Прушу', $line->fresh()->title);
+        $this->assertSame('2026-11-02', $line->fresh()->expected_on->toDateString());
+        $this->assertSame($folder->id, (int) $line->fresh()->category_id);
+        $this->assertSame(19_529, (int) $childLine->fresh()->amount_cents);
+        $this->assertSame('2026-11-18', $childLine->fresh()->expected_on->toDateString());
+        $this->assertSame($rent->id, (int) $childLine->fresh()->category_id);
+        $this->assertSame(27_843, (int) $mortgage->fresh()->amount_cents);
+        $this->assertSame($credit->id, (int) $mortgage->fresh()->category_id);
+        $this->assertSame($credit->id, (int) $debt->fresh()->category_id);
+    }
+
+    public function test_renaming_onto_a_folder_with_children_keeps_the_object_category(): void
+    {
+        [$user, $household] = $this->family('Наша');
+        $home = $this->category($household, 'Дом');
+        Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $home->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Газ',
+            'sort' => 2,
+        ]);
+        $folder = Category::query()->create([
+            'household_id' => $household->id,
+            'parent_id' => $home->id,
+            'type' => CashflowType::Expense,
+            'name' => 'Прушу',
+            'sort' => 3,
+        ]);
+        $object = PropertyObject::query()->create([
+            'household_id' => $household->id,
+            'category_id' => $folder->id,
+            'name' => 'Прушу',
+            'kind' => 'apartment',
+            'label' => 'Прушу 1',
+        ]);
+        $before = Category::query()->count();
+
+        Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $object])
+            ->set('name', 'Дом')
+            ->call('save')
+            ->assertHasErrors(['name'])
+            ->assertSee('Такая категория уже есть.');
+
+        $this->assertSame('Прушу', $object->fresh()->name);
+        $this->assertSame($folder->id, (int) $object->fresh()->category_id);
+        $this->assertSame('Прушу', $folder->fresh()->name);
+        $this->assertSame($before, Category::query()->count());
+        $this->assertSame(1, Category::query()->where('name', 'Дом')->count());
+    }
+
     /**
      * @return array{0: User, 1: Household}
      */
