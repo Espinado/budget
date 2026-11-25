@@ -16,15 +16,19 @@ use App\Models\Transaction;
 use App\Models\PropertyObject;
 use App\Services\Budget\PeriodGenerator;
 use App\Support\CategoryTree;
+use App\Support\ContractDocuments;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 class PropertyObjectForm extends Component
 {
     use RecordsDebt;
+    use WithFileUploads;
 
     public ?int $objectId = null;
 
@@ -63,6 +67,11 @@ class PropertyObjectForm extends Component
     /** @var list<array{amount: string, date: string}> */
     public array $contractParts = [['amount' => '', 'date' => '']];
 
+    public mixed $contractDocument = null;
+
+    /** @var array<int, mixed> */
+    public array $replacementFiles = [];
+
     public function mount(PropertyObject|string|null $propertyObject = null): void
     {
         if ($propertyObject === null || $propertyObject === '') {
@@ -100,6 +109,92 @@ class PropertyObjectForm extends Component
         $this->showExpense = false;
         $this->showNew = false;
         $this->contractParts = [['amount' => '', 'date' => '']];
+        $this->contractDocument = null;
+        $this->resetErrorBag('contractDocument');
+    }
+
+    public function updatedContractDocument(): void
+    {
+        if (! $this->contractDocument instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        try {
+            ContractDocuments::assertValid($this->contractDocument, 'contractDocument');
+        } catch (ValidationException $exception) {
+            $this->contractDocument = null;
+
+            throw $exception;
+        }
+    }
+
+    public function updatedReplacementFiles(mixed $value, ?string $key = null): void
+    {
+        if (! $value instanceof TemporaryUploadedFile || $key === null || ! ctype_digit($key)) {
+            return;
+        }
+
+        $this->replaceContractDocument((int) $key);
+    }
+
+    public function clearContractDocument(): void
+    {
+        $this->contractDocument = null;
+        $this->resetErrorBag('contractDocument');
+    }
+
+    public function removeContractDocument(int $contractId): void
+    {
+        $contract = $this->ownedContract($contractId);
+        ContractDocuments::delete($contract->document_path);
+        $contract->update([
+            'document_path' => null,
+            'document_mime' => null,
+            'document_name' => null,
+        ]);
+    }
+
+    public function replaceContractDocument(int $contractId): void
+    {
+        $file = $this->replacementFiles[$contractId] ?? null;
+        unset($this->replacementFiles[$contractId]);
+
+        if (! $file instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        $stored = ContractDocuments::put($file, 'replacementFiles.'.$contractId);
+        $contract = $this->ownedContract($contractId);
+        $previous = $contract->document_path;
+        $contract->update($stored);
+
+        if (is_string($previous) && $previous !== $stored['document_path']) {
+            ContractDocuments::delete($previous);
+        }
+    }
+
+    /**
+     * @return array{url: string, mime: string, title: string}|null
+     */
+    public function draftDocumentPreview(): ?array
+    {
+        if (! $this->contractDocument instanceof TemporaryUploadedFile) {
+            return null;
+        }
+
+        try {
+            $checked = ContractDocuments::assertValid($this->contractDocument, 'contractDocument');
+        } catch (ValidationException) {
+            return null;
+        }
+
+        return [
+            'url' => $this->contractDocument->temporaryUrl(),
+            'mime' => $checked['mime'],
+            'title' => $checked['extension'] === 'pdf'
+                ? (string) $this->contractDocument->getClientOriginalName()
+                : __('Просмотр документа'),
+        ];
     }
 
     public function addContractPart(): void
@@ -192,26 +287,51 @@ class PropertyObjectForm extends Component
             throw ValidationException::withMessages(['contractParts' => __('Укажите сумму и дату.')]);
         }
 
-        $child = $this->childCategory($category, $title, 'contractTitle');
-        $this->rememberCategory($child->id);
-        $lineIds = [];
+        $stored = null;
+        $contract = null;
 
-        foreach ($parts as $part) {
-            $line = $this->putPlanLine($periods, $object, $child, $title, $part['cents'], $part['date']);
-            $lineIds[] = $line->id;
+        if ($this->contractDocument instanceof TemporaryUploadedFile) {
+            $stored = ContractDocuments::put($this->contractDocument, 'contractDocument');
         }
 
-        $contract = PropertyContract::query()->create([
-            'property_object_id' => $object->id,
-            'title' => $title,
-            'note' => $note === '' ? null : $note,
-        ]);
-        $contract->planLines()->sync($lineIds);
+        try {
+            $child = $this->childCategory($category, $title, 'contractTitle');
+            $this->rememberCategory($child->id);
+            $lineIds = [];
+
+            foreach ($parts as $part) {
+                $line = $this->putPlanLine($periods, $object, $child, $title, $part['cents'], $part['date']);
+                $lineIds[] = $line->id;
+            }
+
+            $contract = PropertyContract::query()->create([
+                'property_object_id' => $object->id,
+                'title' => $title,
+                'note' => $note === '' ? null : $note,
+                'document_path' => $stored['document_path'] ?? null,
+                'document_mime' => $stored['document_mime'] ?? null,
+                'document_name' => $stored['document_name'] ?? null,
+            ]);
+            $contract->planLines()->sync($lineIds);
+        } catch (\Throwable $exception) {
+            if ($contract instanceof PropertyContract && $contract->exists) {
+                $contract->update([
+                    'document_path' => null,
+                    'document_mime' => null,
+                    'document_name' => null,
+                ]);
+            }
+
+            ContractDocuments::delete($stored['document_path'] ?? null);
+
+            throw $exception;
+        }
 
         $this->showContract = false;
         $this->contractTitle = '';
         $this->contractNote = '';
         $this->contractParts = [['amount' => '', 'date' => '']];
+        $this->contractDocument = null;
         session()->flash('status', __('Контракт записан.'));
     }
 
@@ -415,26 +535,17 @@ class PropertyObjectForm extends Component
                 ->where('household_id', $household->id)
                 ->whereNotNull('category_id')
                 ->pluck('category_id');
-            $sameName = Category::query()
+            $category = Category::query()
                 ->where('household_id', $household->id)
                 ->where('type', CashflowType::Expense)
                 ->where('name', $object->name)
                 ->whereNotIn('id', $taken)
                 ->orderBy('id')
-                ->get();
-            $blocked = $sameName->contains(function (Category $candidate) use ($parentId): bool {
-                if ($parentId !== null && (int) $candidate->id === $parentId) {
-                    return true;
-                }
+                ->first();
 
-                return ! $this->categoryCanBeObjectFolder($candidate);
-            });
-
-            if ($blocked) {
-                throw ValidationException::withMessages(['name' => __('Такая категория уже есть.')]);
+            if ($category instanceof Category && $parentId !== null && (int) $category->id === $parentId) {
+                $category = null;
             }
-
-            $category = $sameName->first();
 
             if (! $category instanceof Category) {
                 $category = Category::query()->create([
@@ -705,6 +816,14 @@ class PropertyObjectForm extends Component
         abort_unless((int) $object->household_id === (int) $this->household()->id, 404);
 
         return $object;
+    }
+
+    private function ownedContract(int $contractId): PropertyContract
+    {
+        $contract = $this->ownedObject()->contracts()->whereKey($contractId)->first();
+        abort_unless($contract instanceof PropertyContract, 404);
+
+        return $contract;
     }
 
     /**

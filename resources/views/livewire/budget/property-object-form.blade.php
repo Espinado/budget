@@ -187,6 +187,32 @@
                 @endforeach
                 @error('contractParts') <p class="text-base text-rose-700">{{ $message }}</p> @enderror
                 <button type="button" wire:click="addContractPart" class="w-full rounded-2xl border border-stone-300 bg-paper px-4 py-3 text-base font-medium text-ink">{{ __('Добавить часть') }}</button>
+                <div>
+                    <span class="text-base text-stone-600">{{ __('Документ') }}</span>
+                    <span class="mt-1 block text-base text-stone-500">{{ __('Фотография или PDF. Новый файл заменяет предыдущий.') }}</span>
+                    @if ($draft = $this->draftDocumentPreview())
+                        <div class="mt-2">
+                            @include('livewire.budget.partials.contract-document', [
+                                'documentUrl' => $draft['url'],
+                                'downloadUrl' => $draft['url'],
+                                'documentMime' => $draft['mime'],
+                                'documentTitle' => $draft['title'],
+                            ])
+                        </div>
+                        <button type="button" wire:click="clearContractDocument" class="mt-2 text-base font-medium text-rose-700">{{ __('Убрать документ') }}</button>
+                    @endif
+                    @error('contractDocument') <p class="mt-2 text-base text-rose-700">{{ $message }}</p> @enderror
+                    <div class="mt-2 grid grid-cols-1 gap-2">
+                        <label class="relative flex min-h-14 w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-stone-300 bg-paper px-4 py-3 text-base font-medium text-ink">
+                            {{ __('Загрузить документ') }}
+                            <input type="file" wire:model="contractDocument" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:100px">
+                        </label>
+                        <label class="relative flex min-h-14 w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl px-4 py-3 text-base font-medium text-white" style="background:#0f6e6b">
+                            {{ __('Сфотографировать') }}
+                            <input type="file" wire:model="contractDocument" accept="image/*" capture="environment" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:100px">
+                        </label>
+                    </div>
+                </div>
                 <button type="submit" class="w-full rounded-2xl bg-tide px-4 py-3 text-base font-medium text-white">{{ __('Записать контракт') }}</button>
             </form>
         @endif
@@ -198,14 +224,38 @@
         <section class="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-stone-900/5 sm:p-5">
             <h2 class="text-lg font-medium text-ink">{{ __('Контракты') }}</h2>
             @forelse ($contracts as $contract)
-                <article class="mt-3 rounded-2xl bg-paper px-3 py-3" data-contract="{{ $contract->id }}">
-                    <h3 class="text-base font-semibold text-ink">{{ $contract->title }}</h3>
-                    @if ($contract->note)
-                        <p class="mt-1 text-base text-stone-600">{{ $contract->note }}</p>
-                    @endif
-                    @foreach ($contract->planLines as $line)
-                        <p class="mt-1 text-base text-ink">{{ $line->expected_on?->format('d.m.Y') }} · {{ money($line->amount_cents) }}</p>
-                    @endforeach
+                <article class="mt-3 rounded-2xl bg-paper px-3 py-3" data-contract="{{ $contract->id }}" wire:key="contract-{{ $contract->id }}">
+                    <div class="flex items-start gap-3">
+                        @if ($contract->hasViewableDocument())
+                            <div class="shrink-0">
+                                @include('livewire.budget.partials.contract-document', [
+                                    'documentUrl' => route('objects.contracts.document', $contract),
+                                    'downloadUrl' => route('objects.contracts.document', ['contract' => $contract, 'download' => 1]),
+                                    'documentMime' => $contract->document_mime,
+                                    'documentTitle' => $contract->document_name ?: $contract->title,
+                                ])
+                            </div>
+                        @endif
+                        <div class="min-w-0">
+                            <h3 class="text-base font-semibold text-ink">{{ $contract->title }}</h3>
+                            @if ($contract->note)
+                                <p class="mt-1 text-base text-stone-600">{{ $contract->note }}</p>
+                            @endif
+                            @foreach ($contract->planLines as $line)
+                                <p class="mt-1 text-base text-ink">{{ $line->expected_on?->format('d.m.Y') }} · {{ money($line->amount_cents) }}</p>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div class="mt-3 flex flex-wrap items-center gap-3">
+                        <label class="relative inline-flex min-h-11 cursor-pointer items-center overflow-hidden text-base font-medium text-tide">
+                            {{ $contract->hasViewableDocument() ? __('Заменить документ') : __('Загрузить документ') }}
+                            <input type="file" wire:model="replacementFiles.{{ $contract->id }}" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:100px">
+                        </label>
+                        @if ($contract->hasViewableDocument())
+                            <button type="button" wire:click="removeContractDocument({{ $contract->id }})" wire:confirm="{{ __('Убрать документ? Файл будет удалён.') }}" class="text-base font-medium text-rose-700">{{ __('Убрать документ') }}</button>
+                        @endif
+                    </div>
+                    @error('replacementFiles.'.$contract->id) <p class="mt-2 text-base text-rose-700">{{ $message }}</p> @enderror
                 </article>
             @empty
                 <p class="mt-2 text-base text-stone-600">{{ __('Контрактов пока нет.') }}</p>

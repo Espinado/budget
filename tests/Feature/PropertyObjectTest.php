@@ -138,6 +138,8 @@ class PropertyObjectTest extends TestCase
 
         $object->refresh();
         $this->assertSame('Квартира у моря', $object->name);
+        $this->assertSame('Квартира у моря', $object->category->name);
+        $this->assertSame(1, Category::query()->where('name', 'Квартира у моря')->count());
         $this->assertSame(0, $object->debts()->count());
         $this->assertSame([$utilities->id], $object->planLines()->pluck('plan_lines.id')->all());
         $this->assertTrue(PlanLine::query()->whereKey($policy->id)->exists());
@@ -174,7 +176,8 @@ class PropertyObjectTest extends TestCase
             $this->assertSame($name, $freshNames[$id]);
         }
         $this->assertSame(1, collect($freshNames)->filter(fn ($name) => $name === 'Дом')->count());
-        $this->assertSame(1, collect($freshNames)->filter(fn ($name) => $name === 'Квартира')->count());
+        $this->assertSame(0, collect($freshNames)->filter(fn ($name) => $name === 'Квартира')->count());
+        $this->assertSame(1, collect($freshNames)->filter(fn ($name) => $name === 'Квартира у моря')->count());
     }
 
     public function test_expense_category_is_one_checkbox_and_attaches_every_line(): void

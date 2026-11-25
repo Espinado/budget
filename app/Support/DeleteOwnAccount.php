@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Debt;
 use App\Models\Household;
+use App\Models\PropertyContract;
 use App\Models\SecretDocument;
 use App\Models\Transaction;
 use App\Models\Transfer;
@@ -16,9 +17,10 @@ class DeleteOwnAccount
     public function __invoke(User $user): void
     {
         $receipts = [];
+        $contractDocuments = [];
         $vaultPaths = SecretDocument::query()->where('user_id', $user->id)->pluck('path')->all();
 
-        DB::transaction(function () use ($user, &$receipts): void {
+        DB::transaction(function () use ($user, &$receipts, &$contractDocuments): void {
             $households = $user->households()->get();
 
             foreach ($households as $household) {
@@ -28,6 +30,11 @@ class DeleteOwnAccount
                     continue;
                 }
 
+                $contractDocuments = array_merge($contractDocuments, PropertyContract::query()
+                    ->whereHas('propertyObject', fn ($query) => $query->where('household_id', $household->id))
+                    ->whereNotNull('document_path')
+                    ->pluck('document_path')
+                    ->all());
                 $receipts = array_merge($receipts, $this->deleteHousehold($household));
             }
 
@@ -38,6 +45,10 @@ class DeleteOwnAccount
 
         if ($receipts !== []) {
             Storage::disk('public')->delete($receipts);
+        }
+
+        foreach ($contractDocuments as $path) {
+            ContractDocuments::delete(is_string($path) ? $path : null);
         }
 
         foreach ($vaultPaths as $path) {

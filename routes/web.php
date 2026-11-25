@@ -3,6 +3,7 @@
 use App\Http\Controllers\AppVersionController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PrivacyController;
+use App\Http\Controllers\PropertyContractDocumentController;
 use App\Http\Controllers\FamilyPulseController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\VaultDocumentController;
@@ -53,6 +54,7 @@ Route::middleware(['auth', EnsureOpeningBalances::class])->group(function () {
     Route::get('/vault/documents/{document}', [VaultDocumentController::class, 'show'])->whereNumber('document')->name('vault.documents.show');
     Route::get('/vault/documents/{document}/download', [VaultDocumentController::class, 'download'])->whereNumber('document')->name('vault.documents.download');
     Route::get('/shopping', Shopping::class)->name('shopping');
+    Route::get('/objects/contracts/{contract}/document', [PropertyContractDocumentController::class, 'show'])->whereNumber('contract')->name('objects.contracts.document');
     Route::get('/objects', PropertyObjects::class)->name('objects.index');
     Route::get('/objects/create', PropertyObjectForm::class)->name('objects.create');
     Route::get('/objects/{propertyObject}', PropertyObjectForm::class)->whereNumber('propertyObject')->name('objects.edit');

@@ -1034,5 +1034,11 @@
     "«Новый контракт» — госпошлина или страховка. Есть название и необязательная заметка: страховщик и номер полиса. Заметка остаётся на контракте и строкой плана не становится. Платёж может быть один или из нескольких частей. У части свои дата и сумма. Часть попадает только в план своего месяца: июньская видна в июне, не в мае и не в июле.": "«Jauns līgums» ir nodeva vai apdrošināšana. Ir nosaukums un neobligāta piezīme: apdrošinātājs un polises numurs. Piezīme paliek līgumā un nekļūst par plāna rindu. Maksājums var būt viens vai no vairākām daļām. Daļai ir savs datums un sava summa. Daļa nonāk tikai sava mēneša plānā: jūnija daļa redzama jūnijā, ne maijā un ne jūlijā.",
     "«Новый кредит» открывает обычную форму кредита или лизинга. Долг привязывается к объекту. Его платёж виден вместе с объектом и второй раз в заголовок «Кредит» не добавляется.": "«Jauns kredīts» atver parasto kredīta vai līzinga formu. Parāds tiek piesaistīts objektam. Tā maksājums redzams kopā ar objektu un otrreiz virsrakstā «Kredīts» netiek pieskaitīts.",
     "«Удалить карточку» не удаляет её, пока привязан долг. Сначала долг отвязывают и сохраняют. Долг и строки плана в бюджете остаются.": "«Dzēst kartīti» to nedzēš, kamēr ir piesaistīts parāds. Vispirms parādu atvieno un saglabā. Parāds un plāna rindas budžetā paliek.",
-    "В списке расходов стоят категории, не отдельные суммы. Категория графика этого долга в списке не повторяется.": "Izdevumu sarakstā ir kategorijas, ne atsevišķas summas. Šī parāda grafika kategorija sarakstā neatkārtojas."
+    "В списке расходов стоят категории, не отдельные суммы. Категория графика этого долга в списке не повторяется.": "Izdevumu sarakstā ir kategorijas, ne atsevišķas summas. Šī parāda grafika kategorija sarakstā neatkārtojas.",
+    "Документ": "Dokuments",
+    "Заменить документ": "Aizstāt dokumentu",
+    "Убрать документ": "Noņemt dokumentu",
+    "Открыть документ": "Atvērt dokumentu",
+    "Убрать документ? Файл будет удалён.": "Noņemt dokumentu? Fails tiks dzēsts.",
+    "Фотография или PDF. Новый файл заменяет предыдущий.": "Fotogrāfija vai PDF. Jauns fails aizstāj iepriekšējo."
 }
