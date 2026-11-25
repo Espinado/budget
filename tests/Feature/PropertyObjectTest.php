@@ -1556,6 +1556,80 @@ class PropertyObjectTest extends TestCase
             ->assertSet('contractParts.1.amount', '32,06');
     }
 
+    public function test_the_contract_being_edited_leaves_the_list_until_cancel_or_save(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-25 12:00:00', 'Europe/Riga'));
+        [$user] = $this->family('Наша');
+
+        Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class)
+            ->set('name', 'Квартира')
+            ->set('kind', 'apartment')
+            ->set('label', 'Бривибас 1')
+            ->call('save')
+            ->assertRedirect();
+
+        $object = PropertyObject::query()->firstOrFail();
+        $card = Livewire::actingAs($user)
+            ->test(PropertyObjectForm::class, ['propertyObject' => $object])
+            ->call('openContract')
+            ->set('contractTitle', 'ERGO')
+            ->set('contractNote', 'полис 77')
+            ->set('contractParts', [['amount' => '32,09', 'date' => '12.11.2026']])
+            ->call('saveContract')
+            ->assertHasNoErrors()
+            ->call('openContract')
+            ->set('contractTitle', 'Госпошлина')
+            ->set('contractNote', 'второй')
+            ->set('contractParts', [['amount' => '10,00', 'date' => '20.11.2026']])
+            ->call('saveContract')
+            ->assertHasNoErrors();
+
+        $ergo = PropertyContract::query()->where('title', 'ERGO')->firstOrFail();
+        $duty = PropertyContract::query()->where('title', 'Госпошлина')->firstOrFail();
+        $documentPath = 'contract-documents/ergo.jpg';
+        $ergo->update([
+            'document_path' => $documentPath,
+            'document_mime' => 'image/jpeg',
+            'document_name' => 'ergo.jpg',
+        ]);
+
+        $card->call('editContract', $ergo->id)
+            ->assertSet('editingContractId', $ergo->id)
+            ->assertSee('Сохранить контракт')
+            ->assertDontSee('data-contract="'.$ergo->id.'"', false)
+            ->assertDontSee('wire:click="editContract('.$ergo->id.')"', false)
+            ->assertSee('data-contract="'.$duty->id.'"', false)
+            ->assertSee('wire:click="editContract('.$duty->id.')"', false)
+            ->assertSee('Госпошлина')
+            ->assertDontSee('Контрактов пока нет.')
+            ->call('cancelContract')
+            ->assertSet('showContract', false)
+            ->assertSet('editingContractId', null)
+            ->assertSee('data-contract="'.$ergo->id.'"', false)
+            ->assertSee('data-contract="'.$duty->id.'"', false)
+            ->assertSee('полис 77');
+
+        $this->assertSame(2, PropertyContract::query()->count());
+        $ergo->refresh();
+        $this->assertSame($documentPath, $ergo->document_path);
+        $this->assertSame('ergo.jpg', $ergo->document_name);
+        $this->assertSame('полис 77', $ergo->note);
+
+        $card->call('editContract', $ergo->id)
+            ->assertDontSee('data-contract="'.$ergo->id.'"', false)
+            ->assertSee('data-contract="'.$duty->id.'"', false)
+            ->call('saveContract')
+            ->assertHasNoErrors()
+            ->assertSet('editingContractId', null)
+            ->assertSee('data-contract="'.$ergo->id.'"', false)
+            ->assertSee('data-contract="'.$duty->id.'"', false);
+
+        $ergo->refresh();
+        $this->assertSame($documentPath, $ergo->document_path);
+        $this->assertSame(2, PropertyContract::query()->count());
+    }
+
     /**
      * @return array{0: User, 1: Household}
      */

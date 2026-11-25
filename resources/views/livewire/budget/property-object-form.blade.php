@@ -247,6 +247,9 @@
         <section class="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-stone-900/5 sm:p-5">
             <h2 class="text-lg font-medium text-ink">{{ __('Контракты') }}</h2>
             @forelse ($contracts as $contract)
+                @if ($showContract && $editingContractId !== null && (int) $editingContractId === (int) $contract->id)
+                    @continue
+                @endif
                 <article class="mt-3 rounded-2xl bg-paper px-3 py-3" data-contract="{{ $contract->id }}" wire:key="contract-{{ $contract->id }}">
                     <div class="flex items-start gap-3">
                         @if ($contract->hasViewableDocument())
